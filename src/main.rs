@@ -15,6 +15,9 @@ fn record(conf: &RecordingConfig) {
         .with_pipeline(conf.pipeline.to_string())
         .with_chunks_sec(conf.chunk_size)
         .with_output_dir(conf.output_dir.to_string())
+        .with_on_chunk(|chunk| {
+            info!("Chunk: {}, timestamp: {}, duration: {}", chunk.chunk, chunk.timestamp, chunk.duration.as_secs());
+        })
         .build();
 
     if let Ok(status) = recorder.start() {

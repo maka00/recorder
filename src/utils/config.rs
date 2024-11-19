@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Default, Debug)]
 pub struct RecordingConfig {
     pub pipeline: String,
-    pub chunk_size: u64,
+    pub chunk_size: u32,
     pub output_dir: String,
     pub chunk_prefix: String,
 }
