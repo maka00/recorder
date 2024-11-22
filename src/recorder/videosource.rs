@@ -235,7 +235,7 @@ mod test {
             .build();
         let res = source.start("video0");
         assert_eq!(res.is_ok(), true);
-        let res = source.stop("video0".to_string());
+        let res = source.stop("video0");
         assert_eq!(res.is_ok(), true);
     }
 }
