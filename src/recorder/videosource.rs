@@ -1,17 +1,12 @@
-use crate::dtos::messages::ChunkInfo;
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
 use futures::StreamExt;
 use gst::prelude::*;
-use gstreamer::ffi::{GstFraction, GstPipeline};
-use gstreamer::glib::ControlFlow;
-use gstreamer::{element_error, Caps, Element};
-use gstreamer_app::{gst, AppSink};
-use log::{debug, error, info, warn};
+use gstreamer::{Caps, Element};
+use gstreamer_app::gst;
+use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::collections::BTreeMap;
-use std::error::Error;
-use std::sync::{mpsc, Mutex};
+use std::sync::mpsc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
@@ -30,7 +25,7 @@ pub trait Source {
 
     // Stop the video source
     // device: the device to start
-    fn stop(&mut self, device: String) -> Result<(), PipelineError>;
+    fn stop(&mut self, device: &str) -> Result<(), PipelineError>;
 }
 
 pub struct VideoSource {
@@ -126,7 +121,7 @@ impl Source for VideoSource {
         .ok_or(PipelineError::ParseError)
     }
 
-    fn stop(&mut self, device: String) -> Result<(), PipelineError> {
+    fn stop(&mut self, device: &str) -> Result<(), PipelineError> {
         info!("Stopping video source: {}", device);
         self.gst_pipeline
             .as_ref()
@@ -204,8 +199,8 @@ impl VideoSourceBuilder {
                     .to_string(),
         }
     }
-    pub fn with_fd_dir(mut self, fd_dir: String) -> VideoSourceBuilder {
-        self.fd_dir = fd_dir;
+    pub fn with_fd_dir(mut self, fd_dir: &str) -> VideoSourceBuilder {
+        self.fd_dir = fd_dir.to_string();
         self
     }
 
@@ -221,7 +216,7 @@ impl VideoSourceBuilder {
             tx: mpsc::channel::<String>().0,
             rx: mpsc::channel::<String>().1,
             runtime: Runtime::new().unwrap(),
-            device: "".to_string(),
+            device: String::new(),
         }
     }
 }

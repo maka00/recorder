@@ -18,6 +18,7 @@ impl ChunkInfo {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct VideoSourceInfo {
     pub device: String,
     pub width: u32,

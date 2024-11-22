@@ -1,9 +1,10 @@
-use crate::dtos::messages::ChunkInfo;
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
 use recorder::common::PipelineError;
 use recorder::videorecorder::Recorder;
 use recorder::videosource::Source;
+
+#[allow(dead_code)]
 pub trait VideoController {
     // Scan for video sources
     // returns: a list of video sources (e.g. /dev/video0, /dev/video1)
@@ -16,13 +17,13 @@ pub trait VideoController {
 
     // Stop the video source
     // device: the device to start
-    fn stop(&mut self, device: String) -> Result<(), PipelineError>;
+    fn stop(&mut self, device: &str) -> Result<(), PipelineError>;
 
     // Start recording
-    fn start_recording(&mut self, device: &str) -> Result<(), PipelineError>;
+    fn start_recording(&mut self) -> Result<(), PipelineError>;
 
     // Stop recording
-    fn stop_recording(&mut self, device: &str) -> Result<(), PipelineError>;
+    fn stop_recording(&mut self) -> Result<(), PipelineError>;
 
     // Take still
     fn take_still(&mut self, device: &str, still_file: &str) -> Result<(), PipelineError>;
@@ -42,27 +43,19 @@ impl VideoController for VideoControllerImpl {
         self.source.start(device)
     }
 
-    fn stop(&mut self, device: String) -> Result<(), PipelineError> {
+    fn stop(&mut self, device: &str) -> Result<(), PipelineError> {
         self.source.stop(device)
     }
 
-    fn start_recording(&mut self, device: &str) -> Result<(), PipelineError> {
-        if let res = self.recorder.start() {
-            Ok(())
-        } else {
-            Err(PipelineError::EncodingError)
-        }
+    fn start_recording(&mut self) -> Result<(), PipelineError> {
+        self.recorder.start()
     }
 
-    fn stop_recording(&mut self, device: &str) -> Result<(), PipelineError> {
-        if let res = self.recorder.stop() {
-            Ok(())
-        } else {
-            Err(PipelineError::EncodingError)
-        }
+    fn stop_recording(&mut self) -> Result<(), PipelineError> {
+        self.recorder.stop()
     }
 
-    fn take_still(&mut self, device: &str, still_file: &str) -> Result<(), PipelineError> {
+    fn take_still(&mut self, _: &str, _: &str) -> Result<(), PipelineError> {
         unimplemented!()
     }
 }

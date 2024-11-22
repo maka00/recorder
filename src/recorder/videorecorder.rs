@@ -2,13 +2,10 @@ use crate::dtos::messages::ChunkInfo;
 use crate::recorder;
 use futures::StreamExt;
 use gst::prelude::*;
-use gstreamer::ffi::GstPipeline;
-use gstreamer::glib::ControlFlow;
-use gstreamer::{element_error, Element};
-use gstreamer_app::{gst, AppSink};
-use log::{debug, error, info, warn};
+use gstreamer::Element;
+use gstreamer_app::{gst /*, AppSink*/};
+use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::error::Error;
 use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
@@ -16,9 +13,10 @@ use tokio::time::*;
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
 
+#[allow(dead_code)]
 pub trait Recorder {
-    fn start(&mut self) -> Result<bool, PipelineError>;
-    fn stop(&mut self) -> Result<bool, PipelineError>;
+    fn start(&mut self) -> Result<(), PipelineError>;
+    fn stop(&mut self) -> Result<(), PipelineError>;
 
     fn on_chunk(&mut self, f: fn(msg: &ChunkInfo) -> ());
 }
@@ -37,7 +35,7 @@ pub struct VideoRecorder {
 }
 
 impl Recorder for VideoRecorder {
-    fn start(&mut self) -> Result<bool, PipelineError> {
+    fn start(&mut self) -> Result<(), PipelineError> {
         info!("Starting recording pipeline: {}", self.pipeline);
         match gst::parse::launch(&self.pipeline) {
             Ok(pipeline) => {
@@ -91,10 +89,10 @@ impl Recorder for VideoRecorder {
         });
         info!("Pipeline started");
 
-        Ok(true)
+        Ok(())
     }
 
-    fn stop(&mut self) -> Result<bool, PipelineError> {
+    fn stop(&mut self) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
         self.gst_pipeline
             .as_ref()
@@ -106,7 +104,7 @@ impl Recorder for VideoRecorder {
             .unwrap()
             .set_state(gst::State::Null)
             .unwrap();
-        Ok(true)
+        Ok(())
     }
 
     fn on_chunk(&mut self, f: fn(&ChunkInfo) -> ()) {
@@ -141,7 +139,7 @@ async fn message_loop(
                 );
                 break;
             }
-            MessageView::Element(e) => {
+            MessageView::Element(_) => {
                 if let Some(s) = msg.structure() {
                     match msg.src().unwrap().name().as_str() {
                         "recording-sink" => {
@@ -220,6 +218,7 @@ impl VideoRecorderBuilder {
         self.output_dir = s;
         self
     }
+    #[allow(dead_code)]
     pub fn with_chunk_prefix(mut self, s: String) -> VideoRecorderBuilder {
         self.chunk_prefix = s;
         self

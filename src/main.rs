@@ -3,11 +3,10 @@ mod recorder;
 mod utils;
 
 use crate::recorder::videocontroller::VideoController;
-use crate::recorder::videorecorder::Recorder;
 use crate::utils::config::RecordingConfig;
 use chrono::Local;
 use env_logger::Env;
-use log::{debug, error, info, warn, Level};
+use log::{error, info};
 use std::io::Write;
 use std::{thread, time::Duration};
 
@@ -27,7 +26,7 @@ fn record(conf: &RecordingConfig) {
         })
         .build();
     let source = recorder::videosource::VideoSourceBuilder::new()
-        .with_fd_dir("/tmp".to_string())
+        .with_fd_dir("/tmp")
         .with_pipeline(conf.source_pipeline.as_str())
         .build();
     let mut controller = recorder::videocontroller::VideoControllerImpl::new(source, recorder);
@@ -38,19 +37,19 @@ fn record(conf: &RecordingConfig) {
         error!("Failed to start recorder");
     }
     thread::sleep(Duration::from_secs(2));
-    if let Ok(_) = controller.start_recording("video0") {
+    if let Ok(_) = controller.start_recording() {
         info!("Recorder started");
     } else {
         error!("Failed to start recorder");
     }
 
     thread::sleep(Duration::from_secs(10));
-    if let Ok(_) = controller.stop_recording("video0") {
+    if let Ok(_) = controller.stop_recording() {
         info!("Recorder stopped");
     } else {
         error!("Failed to stop recorder");
     }
-    if let Ok(_) = controller.stop("video0".to_string()) {
+    if let Ok(_) = controller.stop("video0") {
         info!("Controller stopped");
     } else {
         error!("Failed to stop recorder");
