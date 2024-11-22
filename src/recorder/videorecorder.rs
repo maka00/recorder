@@ -1,28 +1,27 @@
-use log::{info, warn, error, debug};
-use gst::prelude::*;
-use gstreamer::{element_error, Element};
-use gstreamer::glib::ControlFlow;
-use gstreamer_app::{gst, AppSink};
-use std::error::Error;
+use crate::dtos::messages::ChunkInfo;
+use crate::recorder;
 use futures::StreamExt;
+use gst::prelude::*;
 use gstreamer::ffi::GstPipeline;
+use gstreamer::glib::ControlFlow;
+use gstreamer::{element_error, Element};
+use gstreamer_app::{gst, AppSink};
+use log::{debug, error, info, warn};
+use recorder::common::PipelineError;
+use std::error::Error;
+use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
-use std::sync::{mpsc, Mutex};
-use crate::dtos::messages::ChunkInfo;
 
-#[derive(PartialEq, Debug)]
-pub enum PipelineError {
-    ParseError,
-    EncodingError,
-}
+const VIDEO_SOURCE: &str = "video-source";
+const VIDEO_SINK: &str = "video-sink";
+
 pub trait Recorder {
     fn start(&mut self) -> Result<bool, PipelineError>;
     fn stop(&mut self) -> Result<bool, PipelineError>;
 
     fn on_chunk(&mut self, f: fn(msg: &ChunkInfo) -> ());
 }
-
 
 pub struct VideoRecorder {
     pipeline: String,
@@ -32,13 +31,14 @@ pub struct VideoRecorder {
     output_dir: String,
     chunk_prefix: String,
     runtime: Runtime,
-    tx : mpsc::Sender<String>,
-    rx : mpsc::Receiver<String>,
+    tx: mpsc::Sender<String>,
+    rx: mpsc::Receiver<String>,
+    socket_path: String,
 }
 
 impl Recorder for VideoRecorder {
     fn start(&mut self) -> Result<bool, PipelineError> {
-        info!("Starting pipeline: {}", self.pipeline);
+        info!("Starting recording pipeline: {}", self.pipeline);
         match gst::parse::launch(&self.pipeline) {
             Ok(pipeline) => {
                 self.gst_pipeline = Some(pipeline);
@@ -48,20 +48,40 @@ impl Recorder for VideoRecorder {
                 return Err(PipelineError::ParseError);
             }
         }
-        let binding = self.gst_pipeline.as_ref().expect("Pipeline mangled").downcast_ref::<gst::Bin>().unwrap()
-            .by_name("recording-sink")
+        let pipeline_bin = self
+            .gst_pipeline
+            .as_ref()
+            .expect("Pipeline mangled")
+            .downcast_ref::<gst::Bin>()
             .unwrap();
+        let source_binding = pipeline_bin.by_name(VIDEO_SOURCE).unwrap();
+        if source_binding.has_property("socket-path", None) {
+            source_binding.set_property("socket-path", &self.socket_path);
+        }
+        let binding = pipeline_bin.by_name(VIDEO_SINK).unwrap();
+        let output_location = format!("{}/{}_%05d.ts", &self.output_dir, &self.chunk_prefix);
+        let ols = output_location.as_str();
+        info!("Output location: {}", ols);
+        if binding.has_property("location", None) {
+            binding.set_property("location", output_location);
+            binding.set_property("target-duration", &self.chunk_sec);
+            //binding.set_property("message-forward", true);
+        }
+        let bus = self
+            .gst_pipeline
+            .as_ref()
+            .expect("unable to get pipeline for bus")
+            .bus()
+            .expect("unable to get bus");
 
-        binding.set_property("location", format!("{}/{}_%05d.ts", &self.output_dir, &self.chunk_prefix));
-        binding.set_property("target-duration", &self.chunk_sec);
-        binding.set_property("message-forward", true);
-
-        let bus = self.gst_pipeline.as_ref().expect("unable to get pipeline for bus").bus().expect("unable to get bus");
-
-        self.gst_pipeline.as_ref().unwrap().set_state(gst::State::Playing).or_else(|e| {
-            error!("{e}");
-            Err(PipelineError::EncodingError)
-        })?;
+        self.gst_pipeline
+            .as_ref()
+            .unwrap()
+            .set_state(gst::State::Playing)
+            .or_else(|e| {
+                error!("{e}");
+                Err(PipelineError::EncodingError)
+            })?;
         (self.tx, self.rx) = mpsc::channel::<String>();
 
         let tt = self.tx.clone();
@@ -76,9 +96,16 @@ impl Recorder for VideoRecorder {
 
     fn stop(&mut self) -> Result<bool, PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
-        self.gst_pipeline.as_ref().unwrap().send_event(gst::event::Eos::new());
-        info!("Got: {}",self.rx.recv().unwrap());
-        self.gst_pipeline.as_ref().unwrap().set_state(gst::State::Null).unwrap();
+        self.gst_pipeline
+            .as_ref()
+            .unwrap()
+            .send_event(gst::event::Eos::new());
+        info!("Got: {}", self.rx.recv().unwrap());
+        self.gst_pipeline
+            .as_ref()
+            .unwrap()
+            .set_state(gst::State::Null)
+            .unwrap();
         Ok(true)
     }
 
@@ -86,9 +113,12 @@ impl Recorder for VideoRecorder {
         self.on_chunk = std::sync::Arc::new(Mutex::new(Some(f)));
         info!("Setting on_chunk callback");
     }
-
 }
-async fn message_loop(bus: gst::Bus, tx: mpsc::Sender<String>, on_chunk: std::sync::Arc<Mutex<Option<fn(&ChunkInfo) -> ()>>>) {
+async fn message_loop(
+    bus: gst::Bus,
+    tx: mpsc::Sender<String>,
+    on_chunk: std::sync::Arc<Mutex<Option<fn(&ChunkInfo) -> ()>>>,
+) {
     let mut messages = bus.stream();
 
     while let Some(msg) = messages.next().await {
@@ -100,8 +130,8 @@ async fn message_loop(bus: gst::Bus, tx: mpsc::Sender<String>, on_chunk: std::sy
             MessageView::Eos(..) => {
                 info!("EOS");
                 tx.send("eos".to_string()).unwrap();
-                break
-            },
+                break;
+            }
             MessageView::Error(err) => {
                 println!(
                     "Error from {:?}: {} ({:?})",
@@ -117,14 +147,30 @@ async fn message_loop(bus: gst::Bus, tx: mpsc::Sender<String>, on_chunk: std::sy
                         "recording-sink" => {
                             let msg_struct = s;
                             if msg.structure().unwrap().name() == "hls-segment-added" {
-                                debug!("location: {}", msg_struct.get::<&str>("location").unwrap().to_string());
-                                debug!("running-time: {}", msg_struct.get::<u64>("running-time").unwrap().to_string());
-                                debug!("duration: {}", msg_struct.get::<u64>("duration").unwrap().to_string());
+                                debug!(
+                                    "location: {}",
+                                    msg_struct.get::<&str>("location").unwrap().to_string()
+                                );
+                                debug!(
+                                    "running-time: {}",
+                                    msg_struct.get::<u64>("running-time").unwrap().to_string()
+                                );
+                                debug!(
+                                    "duration: {}",
+                                    msg_struct.get::<u64>("duration").unwrap().to_string()
+                                );
                                 if let Ok(f) = on_chunk.lock() {
                                     if let Some(ff) = f.as_ref() {
-                                        let chunk = ChunkInfo::new(msg_struct.get::<&str>("location").unwrap().to_string(),
-                                                                   msg_struct.get::<u64>("running-time").unwrap().to_string(),
-                                                                   Duration::from_secs(msg_struct.get::<u64>("duration").unwrap()));
+                                        let chunk = ChunkInfo::new(
+                                            msg_struct.get::<&str>("location").unwrap().to_string(),
+                                            msg_struct
+                                                .get::<u64>("running-time")
+                                                .unwrap()
+                                                .to_string(),
+                                            Duration::from_secs(
+                                                msg_struct.get::<u64>("duration").unwrap(),
+                                            ),
+                                        );
                                         ff(&chunk);
                                     }
                                 }
@@ -145,6 +191,7 @@ pub struct VideoRecorderBuilder {
     on_chunk: Option<fn(&ChunkInfo) -> ()>,
     output_dir: String,
     chunk_prefix: String,
+    socket_path: String,
 }
 impl VideoRecorderBuilder {
     pub fn new() -> VideoRecorderBuilder {
@@ -155,6 +202,7 @@ impl VideoRecorderBuilder {
             on_chunk: None,
             output_dir: ".".to_string(),
             chunk_prefix: "chunk".to_string(),
+            socket_path: "/tmp/video.sock".to_string(),
         }
     }
 
@@ -180,6 +228,11 @@ impl VideoRecorderBuilder {
         self.on_chunk = Some(f);
         self
     }
+    pub fn with_socket_path(mut self, s: String) -> VideoRecorderBuilder {
+        self.socket_path = s;
+        self
+    }
+
     pub fn build(self) -> VideoRecorder {
         VideoRecorder {
             pipeline: self.pipeline,
@@ -188,6 +241,7 @@ impl VideoRecorderBuilder {
             output_dir: self.output_dir,
             gst_pipeline: None,
             chunk_prefix: self.chunk_prefix,
+            socket_path: self.socket_path,
             runtime: Runtime::new().unwrap(),
             tx: mpsc::channel::<String>().0,
             rx: mpsc::channel::<String>().1,
@@ -197,11 +251,13 @@ impl VideoRecorderBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::recorder;
+    use super::*;
 
     #[test]
     fn build_test() {
-        let recorder = recorder::videorecorder::VideoRecorderBuilder::new().with_pipeline("test".to_string()).build();
+        let recorder = VideoRecorderBuilder::new()
+            .with_pipeline("test".to_string())
+            .build();
         assert_eq!(recorder.pipeline, "test");
     }
 }
