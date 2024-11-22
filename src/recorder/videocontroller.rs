@@ -82,7 +82,7 @@ mod test {
     #[test]
     fn test_video_controller() {
         let source = VideoSourceBuilder::new()
-            .with_fd_dir("/dev".to_string())
+            .with_fd_dir("/dev")
             .with_pipeline("videotestsrc name=video-source ! unixfdsink name=video-sink")
             .build();
         let recorder = VideoRecorderBuilder::new()
@@ -95,11 +95,11 @@ mod test {
         let mut controller = VideoControllerImpl::new(source, recorder);
         let res = controller.start("video0");
         assert_eq!(res.is_ok(), true);
-        let res = controller.start_recording("video0");
+        let res = controller.start_recording();
         assert_eq!(res.is_ok(), true);
-        let res = controller.stop_recording("video0");
+        let res = controller.stop_recording();
         assert_eq!(res.is_ok(), true);
-        let res = controller.stop("video0".to_string());
+        let res = controller.stop("video0");
         assert_eq!(res.is_ok(), true);
     }
 }
