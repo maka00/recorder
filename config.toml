@@ -1,11 +1,15 @@
 # The main source pipeline that will be used to generate the video stream
-source_pipeline = """videotestsrc is-live=true name=video-source \
+source_pipeline_ = """videotestsrc is-live=true name=video-source \
             ! video/x-raw, format=YUY2,framerate=25/1, width=3840, height=2160 \
             ! queue \
             ! unixfdsink name=video-sink \
             """
+source_pipeline = """v4l2src name=video-source device=/dev/video0 \
+            ! queue \
+            ! unixfdsink name=video-sink \
+            """
 
-recording_pipeline = """unixfdsrc name=video-source \
+recording_pipeline_ = """unixfdsrc name=video-source \
             ! queue \
             ! tee name=t \
             t. \
@@ -16,37 +20,36 @@ recording_pipeline = """unixfdsrc name=video-source \
             ! queue \
             ! timeoverlay \
             ! queue \
-            ! x264enc key-int-max=10 \
+            ! x264enc key-int-max=10 bitrate=20000 \
             ! h264parse \
             ! queue \
             ! hlssink3 name=video-sink playlist-type=1  target-duration=6 \
             """
 # The pipeline that will be used to read the video stream from the source pipeline
 # writes the video stream to a ts file and a frame to an appsink
-pipeline_with_sink = """unixfdsrc name=source-fd socket-path=/tmp/source-fd
-            ! "video/x-raw, format=YUY2,framerate=25/1, width=3840, height=2160" \
+#! video/x-raw, format=YUY2,framerate=25/1, width=3840, height=2160 \
+
+recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
             ! queue \
             ! tee name=t \
             t. \
-            ! "video/x-raw, format=YUY2,framerate=25/1, width=3840, height=2160" \
             ! queue \
             ! videoconvert \
             ! queue \
             ! timeoverlay \
             ! queue \
-            ! x264enc key-int-max=10 \
+            ! x264enc key-int-max=10 bitrate=20000 \
             ! h264parse \
             ! queue \
-            ! hlssink3 name=recording-sink playlist-type=1  target-duration=6 \
+            ! hlssink3 name=video-sink playlist-type=1  target-duration=6 \
             t. \
             ! queue \
             ! videorate \
-            ! "video/x-raw, framerate=1/6" \
+            ! video/x-raw, framerate=1/1 \
             ! queue \
             ! videoconvert \
-            ! queue \
             ! videoscale n-threads=10 \
-            ! "video/x-raw, width=1024, height=720" \
+            ! video/x-raw, width=1024, height=720 \
             ! queue \
             ! appsink name=frame-sink max-buffers=1 drop=true sync=false emit-signals=true
             """

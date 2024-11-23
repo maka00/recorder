@@ -76,7 +76,7 @@ impl Source for VideoSource {
             .by_name(VIDEO_SOURCE)
             .expect("Unable to get video source");
         if source.has_property("device", None) {
-            source.set_property("device", format!("/{}/{}", &self.fd_dir, &device));
+            source.set_property("device", format!("/dev/{}", &device));
         }
 
         let bus = self

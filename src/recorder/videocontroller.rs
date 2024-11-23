@@ -76,7 +76,7 @@ impl VideoControllerImpl {
 mod test {
     use super::*;
     use crate::recorder::videorecorder::VideoRecorderBuilder;
-    use crate::recorder::videosource::{VideoSourceBuilder};
+    use crate::recorder::videosource::VideoSourceBuilder;
 
     #[test]
     fn test_video_controller() {

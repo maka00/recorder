@@ -2,8 +2,8 @@ use crate::dtos::messages::ChunkInfo;
 use crate::recorder;
 use futures::StreamExt;
 use gst::prelude::*;
-use gstreamer::Element;
-use gstreamer_app::{gst /*, AppSink*/};
+use gstreamer::{element_error, Element};
+use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
 use std::sync::{mpsc, Mutex};
@@ -12,6 +12,7 @@ use tokio::time::*;
 
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
+const FRAME_SINK: &str = "frame-sink";
 
 #[allow(dead_code)]
 pub trait Recorder {
@@ -56,15 +57,26 @@ impl Recorder for VideoRecorder {
         if source_binding.has_property("socket-path", None) {
             source_binding.set_property("socket-path", &self.socket_path);
         }
-        let binding = pipeline_bin.by_name(VIDEO_SINK).unwrap();
+        let sink_binding = pipeline_bin.by_name(VIDEO_SINK).unwrap();
         let output_location = format!("{}/{}_%05d.ts", &self.output_dir, &self.chunk_prefix);
         let ols = output_location.as_str();
         info!("Output location: {}", ols);
-        if binding.has_property("location", None) {
-            binding.set_property("location", output_location);
-            binding.set_property("target-duration", &self.chunk_sec);
-            //binding.set_property("message-forward", true);
+        if sink_binding.has_property("location", None) {
+            sink_binding.set_property("location", output_location);
+            sink_binding.set_property("target-duration", &self.chunk_sec);
+            sink_binding.set_property("message-forward", true);
         }
+        let frame_sink_binding = pipeline_bin.by_name(FRAME_SINK).unwrap();
+        let dummy = frame_sink_binding.downcast_ref::<AppSink>();
+        //if frame_sink_binding.is_some() {
+        let frame_sink = dummy.expect("Frame sink is expected to be an appsink!");
+        frame_sink.set_callbacks(
+            gstreamer_app::AppSinkCallbacks::builder()
+                .new_sample(sample_callback)
+                .build(),
+        );
+        //}
+
         let bus = self
             .gst_pipeline
             .as_ref()
@@ -112,6 +124,30 @@ impl Recorder for VideoRecorder {
         info!("Setting on_chunk callback");
     }
 }
+
+fn sample_callback(app_sink: &AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
+    println!("got sample");
+    let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
+    let buffer = sample.buffer().ok_or_else(|| {
+        element_error!(
+            app_sink,
+            gst::ResourceError::Failed,
+            ("Failed to get buffer")
+        );
+        gst::FlowError::Error
+    })?;
+    let _ = buffer.map_readable().map_err(|_| {
+        element_error!(
+            app_sink,
+            gst::ResourceError::Failed,
+            ("Failed to map buffer readable")
+        );
+        gst::FlowError::Error
+    })?;
+
+    Ok(gst::FlowSuccess::Ok)
+}
+
 async fn message_loop(
     bus: gst::Bus,
     tx: mpsc::Sender<String>,
