@@ -124,7 +124,7 @@ impl Recorder for VideoRecorder {
 }
 
 fn sample_callback() -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
-    |app_sink: &AppSink| {
+    move |app_sink: &AppSink| {
         println!("got sample");
         let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
         let buffer = sample.buffer().ok_or_else(|| {
