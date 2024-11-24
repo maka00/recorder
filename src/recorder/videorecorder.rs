@@ -68,14 +68,12 @@ impl Recorder for VideoRecorder {
         }
         let frame_sink_binding = pipeline_bin.by_name(FRAME_SINK).unwrap();
         let dummy = frame_sink_binding.downcast_ref::<AppSink>();
-        //if frame_sink_binding.is_some() {
         let frame_sink = dummy.expect("Frame sink is expected to be an appsink!");
         frame_sink.set_callbacks(
             gstreamer_app::AppSinkCallbacks::builder()
-                .new_sample(sample_callback)
+                .new_sample(sample_callback())
                 .build(),
         );
-        //}
 
         let bus = self
             .gst_pipeline
@@ -125,27 +123,29 @@ impl Recorder for VideoRecorder {
     }
 }
 
-fn sample_callback(app_sink: &AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
-    println!("got sample");
-    let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
-    let buffer = sample.buffer().ok_or_else(|| {
-        element_error!(
-            app_sink,
-            gst::ResourceError::Failed,
-            ("Failed to get buffer")
-        );
-        gst::FlowError::Error
-    })?;
-    let _ = buffer.map_readable().map_err(|_| {
-        element_error!(
-            app_sink,
-            gst::ResourceError::Failed,
-            ("Failed to map buffer readable")
-        );
-        gst::FlowError::Error
-    })?;
+fn sample_callback() -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
+    |app_sink: &AppSink| {
+        println!("got sample");
+        let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
+        let buffer = sample.buffer().ok_or_else(|| {
+            element_error!(
+                app_sink,
+                gst::ResourceError::Failed,
+                ("Failed to get buffer")
+            );
+            gst::FlowError::Error
+        })?;
+        let _ = buffer.map_readable().map_err(|_| {
+            element_error!(
+                app_sink,
+                gst::ResourceError::Failed,
+                ("Failed to map buffer readable")
+            );
+            gst::FlowError::Error
+        })?;
 
-    Ok(gst::FlowSuccess::Ok)
+        Ok(gst::FlowSuccess::Ok)
+    }
 }
 
 async fn message_loop(

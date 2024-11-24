@@ -25,3 +25,8 @@ pub struct VideoSourceInfo {
     pub height: u32,
     pub format: String,
 }
+
+pub enum RecordingState {
+    ChunkCreated,
+    EOS,
+}
