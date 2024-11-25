@@ -111,7 +111,7 @@ impl Recorder for VideoRecorder {
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
-        info!("Got: {}", self.rx.recv().unwrap());
+        info!("Pipeline stopped: {}", self.rx.recv().unwrap());
         self.gst_pipeline
             .as_ref()
             .unwrap()
@@ -128,7 +128,6 @@ impl Recorder for VideoRecorder {
 
 fn sample_callback(fh: std::sync::Arc<Mutex<FrameHandlerImpl>>) -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
     move |app_sink: &AppSink| {
-        println!("got sample");
         let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
         let buffer = sample.buffer().ok_or_else(|| {
             element_error!(

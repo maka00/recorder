@@ -1,8 +1,5 @@
-use std::ops::Deref;
-use byte_slice_cast::AsSliceOf;
 use gstreamer::{BufferRef};
 use gstreamer_app::gst;
-use log::info;
 use opencv::{
     core::{self, Mat, Vector,hconcat,  Size},
     imgcodecs,
@@ -13,6 +10,11 @@ use opencv::boxed_ref::BoxedRef;
 use opencv::core::Vec3b;
 use opencv::prelude::*;
 
+const SPRITE_WIDTH: i32 = 4;
+const SPRITE_HEIGHT: i32 = 54;
+const SPRITE_COUNT: usize = 6;
+const WIDTH: i32 = 720;
+const HEIGHT: i32 = 480;
 pub trait FrameHandler {
     fn handle_frame(&mut self, frame: &BufferRef) -> Result<(), gst::FlowError>;
     fn collect_frames(&mut self) -> Result<(), gst::FlowError>;
@@ -38,9 +40,9 @@ impl FrameHandler for FrameHandlerImpl {
         })?;
         let mut rgb = Vec::<u8>::new();
          map.clone_into(rgb.as_mut());
-        let mat = unsafe { Mat::new_rows_cols_with_data_unsafe_def(480, 720, Vec3b::opencv_type(), rgb.as_mut_ptr().cast()) }.unwrap();
+        let mat = unsafe { Mat::new_rows_cols_with_data_unsafe_def(HEIGHT, WIDTH, Vec3b::opencv_type(), rgb.as_mut_ptr().cast()) }.unwrap();
         self.frames.push(mat.clone());
-        if self.frames.len() == 6 {
+        if self.frames.len() == SPRITE_COUNT {
             self.collect_frames()?;
         }
         Ok(())
@@ -52,9 +54,9 @@ impl FrameHandler for FrameHandlerImpl {
         }
         let sprite = concat_sprites(create_sprites(&self.frames).as_ref());
 
-        imgcodecs::imwrite(format!("sprite_{}.png", self.idx).as_str(), &sprite, &Vector::new()).unwrap();
+        imgcodecs::imwrite(format!("sprite_{:05}.png", self.idx).as_str(), &sprite, &Vector::new()).unwrap();
         let tooltips= concat_sprites(&self.frames);
-        imgcodecs::imwrite(format!("tooltips_{}.png", self.idx).as_str(), &tooltips, &Vector::new()).unwrap();
+        imgcodecs::imwrite(format!("tooltips_{:05}.png", self.idx).as_str(), &tooltips, &Vector::new()).unwrap();
         self.frames.clear();
         self.idx += 1;
         Ok(())
@@ -62,28 +64,21 @@ impl FrameHandler for FrameHandlerImpl {
 }
 
 fn create_sprite(input :&Mat) -> Mat {
-    let new_height = 54;
+    let new_height = SPRITE_HEIGHT;
     let scale_factor = new_height as f64 / input.rows() as f64;
     let new_width = (input.cols() as f64 * scale_factor).round() as i32;
     let mut img = Mat::default();
-    opencv::imgproc::resize(&input, &mut img, Size::new(new_width,new_height), 0.0, 0.0, imgproc::INTER_LINEAR).unwrap();
+    imgproc::resize(&input, &mut img, Size::new(new_width,new_height), 0.0, 0.0, imgproc::INTER_LINEAR).unwrap();
     let center = img.cols() / 2;
-    let roi = img.roi(core::Rect::new(center - 2, 0, 4, img.rows())).unwrap();
+    let roi = img.roi(core::Rect::new(center - 2, 0, SPRITE_WIDTH, img.rows())).unwrap();
     roi.clone_pointee()
 }
 
 fn create_sprites(input: &Vec<Mat>) -> Vec<Mat>  {
-    // Scaling the image to keep the aspect ratio
-    let new_height = 54;
     let mut mat_vec : Vec<Mat> = Vec::new();
-    let mut img = Mat::default();
     for frame in input.iter() {
-        let scale_factor = new_height as f64 / frame.rows() as f64;
-        let new_width = (frame.cols() as f64 * scale_factor).round() as i32;
-        opencv::imgproc::resize(&frame, &mut img, Size::new(new_width,new_height), 0.0, 0.0, imgproc::INTER_LINEAR).unwrap();
-        let center = img.cols() / 2;
-        let sprite = img.roi(core::Rect::new(center - 2, 0, 4, img.rows())).unwrap();
-        mat_vec.push(sprite.clone_pointee());
+        let sprite = create_sprite(frame);
+        mat_vec.push(sprite);
     }
     mat_vec
 }
@@ -93,17 +88,13 @@ macro_rules! bref_from_mat {
     };
 }
 fn concat_sprites(input: &Vec<Mat>) -> Mat {
-    use opencv::core::CV_8UC3;
-    let mut rgb = vec![0u8; 480 * 720 * 3];
-    let black_frame= unsafe { Mat::new_rows_cols_with_data_unsafe_def(480, 720, Vec3b::opencv_type(), rgb.as_mut_ptr().cast()) }.unwrap();
-
     let mut roi_vec = Vector::<BoxedRef<Mat>>::new();
     for mat in input.iter() {
-        let ref_mat = bref_from_mat!(mat).unwrap(); //mat.roi(core::Rect::new(0, 0, mat.cols(), mat.rows())).unwrap();
+        let ref_mat = bref_from_mat!(mat).unwrap();
         roi_vec.push(ref_mat);
     }
     for _ in 0..(6 - input.len()) {
-        let ref_mat = bref_from_mat!(input.last().unwrap()).unwrap(); //mat.roi(core::Rect::new(0, 0, mat.cols(), mat.rows())).unwrap();
+        let ref_mat = bref_from_mat!(input.last().unwrap()).unwrap();
         roi_vec.push(ref_mat);
     }
     let mut result = core::Mat::default();
@@ -120,7 +111,6 @@ mod tests {
     fn test_opencv() {
         let mat = Mat::default();
         let img3: Mat = unsafe { Mat::new_nd(&[480, 640], CV_8UC3).unwrap() };
-        //Mat::from_bytes::<opencv::core>(&[0u8; 480 * 640 * 3]).unwrap();
         imgcodecs::imwrite("sprite.png", &img3, &Vector::new()).unwrap();
     }
 }

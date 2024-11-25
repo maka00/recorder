@@ -51,7 +51,7 @@ impl Source for VideoSource {
     fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
         info!("Starting video source: {}", device);
         self.device = device.to_string();
-        println!("Starting source pipeline: {}", &self.pipeline_str);
+        info!("Starting source pipeline: {}", &self.pipeline_str);
         match gst::parse::launch(&self.pipeline_str) {
             Ok(pipeline) => {
                 self.gst_pipeline = Some(pipeline);
@@ -127,7 +127,7 @@ impl Source for VideoSource {
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
-        info!("Got: {}", self.rx.recv().unwrap());
+        info!("Pipeline stopped: {}", self.rx.recv().unwrap());
         self.gst_pipeline
             .as_ref()
             .unwrap()

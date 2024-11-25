@@ -11,6 +11,7 @@ use std::io::Write;
 use std::{thread, time::Duration};
 
 fn record(conf: &RecordingConfig) {
+    const RECORDING_TIME: u64 = 30;
     let recorder = recorder::videorecorder::VideoRecorderBuilder::new()
         .with_pipeline(conf.recording_pipeline.to_string())
         .with_chunks_sec(conf.chunk_size)
@@ -43,7 +44,7 @@ fn record(conf: &RecordingConfig) {
         error!("Failed to start recorder");
     }
 
-    thread::sleep(Duration::from_secs(8));
+    thread::sleep(Duration::from_secs(RECORDING_TIME));
     if let Ok(_) = controller.stop_recording() {
         info!("Recorder stopped");
     } else {
