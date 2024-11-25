@@ -199,7 +199,6 @@ async fn message_loop(
                                     "duration: {}",
                                     msg_struct.get::<u64>("duration").unwrap().to_string()
                                 );
-                                fh.lock().unwrap().collect_frames().unwrap();
                                 if let Ok(f) = on_chunk.lock() {
                                     if let Some(ff) = f.as_ref() {
                                         let chunk = ChunkInfo::new(

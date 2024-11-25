@@ -43,7 +43,7 @@ fn record(conf: &RecordingConfig) {
         error!("Failed to start recorder");
     }
 
-    thread::sleep(Duration::from_secs(10));
+    thread::sleep(Duration::from_secs(8));
     if let Ok(_) = controller.stop_recording() {
         info!("Recorder stopped");
     } else {
