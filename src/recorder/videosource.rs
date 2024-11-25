@@ -13,7 +13,7 @@ use tokio::runtime::Runtime;
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
 
-pub trait Source {
+pub trait Source: Sync + Send {
     // Scan for video sources
     // returns: a list of video sources (e.g. /dev/video0, /dev/video1)
     fn scan(&self) -> Result<Vec<String>, PipelineError>;
@@ -21,19 +21,17 @@ pub trait Source {
     // Start the video source
     // device: the device to start
     // returns: the video source info
-    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
+    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
 
     // Stop the video source
     // device: the device to start
-    fn stop(&mut self, device: &str) -> Result<(), PipelineError>;
+    fn stop(&self, device: &str) -> Result<(), PipelineError>;
 }
 
 pub struct VideoSource {
     fd_dir: String,
     pipeline_str: String,
     gst_pipeline: Option<Element>,
-    tx: mpsc::Sender<String>,
-    rx: mpsc::Receiver<String>,
     runtime: Runtime,
     device: String,
 }
@@ -48,19 +46,11 @@ impl Source for VideoSource {
             .collect::<Vec<String>>())
     }
 
-    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
+    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
         info!("Starting video source: {}", device);
-        self.device = device.to_string();
+        let device = device.to_string();
         info!("Starting source pipeline: {}", &self.pipeline_str);
-        match gst::parse::launch(&self.pipeline_str) {
-            Ok(pipeline) => {
-                self.gst_pipeline = Some(pipeline);
-            }
-            Err(e) => {
-                error!("{e}");
-                return Err(PipelineError::ParseError);
-            }
-        }
+
         let pipeline_bin = self
             .gst_pipeline
             .as_ref()
@@ -99,11 +89,8 @@ impl Source for VideoSource {
             std::thread::sleep(Duration::from_millis(100));
         }
 
-        (self.tx, self.rx) = mpsc::channel::<String>();
-
-        let tt = self.tx.clone();
         self.runtime.spawn(async {
-            message_loop(bus, tt).await;
+            message_loop(bus).await;
         });
         info!("Pipeline started");
         // query the video source for info (width, height, framerate, format)
@@ -121,13 +108,12 @@ impl Source for VideoSource {
         .ok_or(PipelineError::ParseError)
     }
 
-    fn stop(&mut self, device: &str) -> Result<(), PipelineError> {
+    fn stop(&self, device: &str) -> Result<(), PipelineError> {
         info!("Stopping video source: {}", device);
         self.gst_pipeline
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
-        info!("Pipeline stopped: {}", self.rx.recv().unwrap());
         self.gst_pipeline
             .as_ref()
             .unwrap()
@@ -156,7 +142,7 @@ impl VideoSource {
     }
 }
 
-async fn message_loop(bus: gst::Bus, tx: mpsc::Sender<String>) {
+async fn message_loop(bus: gst::Bus) {
     let mut messages = bus.stream();
 
     while let Some(msg) = messages.next().await {
@@ -167,7 +153,6 @@ async fn message_loop(bus: gst::Bus, tx: mpsc::Sender<String>) {
         match msg.view() {
             MessageView::Eos(..) => {
                 info!("EOS");
-                tx.send("eos".to_string()).unwrap();
                 break;
             }
             MessageView::Error(err) => {
@@ -212,9 +197,13 @@ impl VideoSourceBuilder {
         VideoSource {
             fd_dir: self.fd_dir.to_string(),
             pipeline_str: self.pipeline_str.to_string(),
-            gst_pipeline: None,
-            tx: mpsc::channel::<String>().0,
-            rx: mpsc::channel::<String>().1,
+            gst_pipeline: match gst::parse::launch(self.pipeline_str.clone().as_str()) {
+                Ok(pipeline) => Some(pipeline),
+                Err(e) => {
+                    error!("{e}");
+                    None
+                }
+            },
             runtime: Runtime::new().unwrap(),
             device: String::new(),
         }

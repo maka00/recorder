@@ -13,20 +13,20 @@ pub trait VideoController {
     // Start the video source
     // device: the device to start
     // returns: the video source info
-    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
+    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
 
     // Stop the video source
     // device: the device to start
-    fn stop(&mut self, device: &str) -> Result<(), PipelineError>;
+    fn stop(&self, device: &str) -> Result<(), PipelineError>;
 
     // Start recording
-    fn start_recording(&mut self) -> Result<(), PipelineError>;
+    fn start_recording(&self) -> Result<(), PipelineError>;
 
     // Stop recording
-    fn stop_recording(&mut self) -> Result<(), PipelineError>;
+    fn stop_recording(&self) -> Result<(), PipelineError>;
 
     // Take still
-    fn take_still(&mut self, device: &str, still_file: &str) -> Result<(), PipelineError>;
+    fn take_still(&self, device: &str, still_file: &str) -> Result<(), PipelineError>;
 }
 
 pub struct VideoControllerImpl {
@@ -39,23 +39,23 @@ impl VideoController for VideoControllerImpl {
         self.source.scan()
     }
 
-    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
+    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
         self.source.start(device)
     }
 
-    fn stop(&mut self, device: &str) -> Result<(), PipelineError> {
+    fn stop(&self, device: &str) -> Result<(), PipelineError> {
         self.source.stop(device)
     }
 
-    fn start_recording(&mut self) -> Result<(), PipelineError> {
+    fn start_recording(&self) -> Result<(), PipelineError> {
         self.recorder.start()
     }
 
-    fn stop_recording(&mut self) -> Result<(), PipelineError> {
+    fn stop_recording(&self) -> Result<(), PipelineError> {
         self.recorder.stop()
     }
 
-    fn take_still(&mut self, _: &str, _: &str) -> Result<(), PipelineError> {
+    fn take_still(&self, _: &str, _: &str) -> Result<(), PipelineError> {
         unimplemented!()
     }
 }

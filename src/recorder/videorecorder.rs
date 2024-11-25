@@ -1,5 +1,6 @@
 use crate::dtos::messages::ChunkInfo;
 use crate::recorder;
+use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 use futures::StreamExt;
 use gst::prelude::*;
 use gstreamer::{element_error, Element};
@@ -9,18 +10,15 @@ use recorder::common::PipelineError;
 use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
-use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
 const FRAME_SINK: &str = "frame-sink";
 
 #[allow(dead_code)]
-pub trait Recorder {
-    fn start(&mut self) -> Result<(), PipelineError>;
-    fn stop(&mut self) -> Result<(), PipelineError>;
-
-    fn set_on_chunk(&mut self, f: fn(msg: &ChunkInfo) -> ());
+pub trait Recorder: Sync + Send {
+    fn start(&self) -> Result<(), PipelineError>;
+    fn stop(&self) -> Result<(), PipelineError>;
 }
 
 pub struct VideoRecorder {
@@ -31,24 +29,13 @@ pub struct VideoRecorder {
     output_dir: String,
     chunk_prefix: String,
     runtime: Runtime,
-    tx: mpsc::Sender<String>,
-    rx: mpsc::Receiver<String>,
     socket_path: String,
     fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
 }
 
 impl Recorder for VideoRecorder {
-    fn start(&mut self) -> Result<(), PipelineError> {
+    fn start(&self) -> Result<(), PipelineError> {
         info!("Starting recording pipeline: {}", self.pipeline);
-        match gst::parse::launch(&self.pipeline) {
-            Ok(pipeline) => {
-                self.gst_pipeline = Some(pipeline);
-            }
-            Err(e) => {
-                error!("{e}");
-                return Err(PipelineError::ParseError);
-            }
-        }
         let pipeline_bin = self
             .gst_pipeline
             .as_ref()
@@ -92,26 +79,23 @@ impl Recorder for VideoRecorder {
                 error!("{e}");
                 Err(PipelineError::EncodingError)
             })?;
-        (self.tx, self.rx) = mpsc::channel::<String>();
 
-        let tt = self.tx.clone();
         let callback = self.on_chunk.clone();
         let frame_handler = self.fh.clone();
         self.runtime.spawn(async {
-            message_loop(bus, tt, callback, frame_handler).await;
+            message_loop(bus, callback, frame_handler).await;
         });
         info!("Pipeline started");
 
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<(), PipelineError> {
+    fn stop(&self) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
         self.gst_pipeline
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
-        info!("Pipeline stopped: {}", self.rx.recv().unwrap());
         self.gst_pipeline
             .as_ref()
             .unwrap()
@@ -119,14 +103,11 @@ impl Recorder for VideoRecorder {
             .unwrap();
         Ok(())
     }
-
-    fn set_on_chunk(&mut self, f: fn(&ChunkInfo) -> ()) {
-        self.on_chunk = std::sync::Arc::new(Mutex::new(Some(f)));
-        info!("Setting on_chunk callback");
-    }
 }
 
-fn sample_callback(fh: std::sync::Arc<Mutex<FrameHandlerImpl>>) -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
+fn sample_callback(
+    fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
+) -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
     move |app_sink: &AppSink| {
         let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
         let buffer = sample.buffer().ok_or_else(|| {
@@ -153,7 +134,6 @@ fn sample_callback(fh: std::sync::Arc<Mutex<FrameHandlerImpl>>) -> impl Fn(&AppS
 
 async fn message_loop(
     bus: gst::Bus,
-    tx: mpsc::Sender<String>,
     on_chunk: std::sync::Arc<Mutex<Option<fn(&ChunkInfo) -> ()>>>,
     fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
 ) {
@@ -168,7 +148,6 @@ async fn message_loop(
             MessageView::Eos(..) => {
                 info!("EOS");
                 fh.lock().unwrap().collect_frames().unwrap();
-                tx.send("eos".to_string()).unwrap();
                 break;
             }
             MessageView::Error(err) => {
@@ -275,16 +254,20 @@ impl VideoRecorderBuilder {
 
     pub fn build(self) -> VideoRecorder {
         VideoRecorder {
-            pipeline: self.pipeline,
+            pipeline: self.pipeline.clone(),
             on_chunk: std::sync::Arc::new(Mutex::new(self.on_chunk)),
             chunk_sec: self.chunk_sec,
             output_dir: self.output_dir,
-            gst_pipeline: None,
+            gst_pipeline: match gst::parse::launch(self.pipeline.clone().as_str()) {
+                Ok(pipeline) => Some(pipeline),
+                Err(e) => {
+                    error!("{e}");
+                    None
+                }
+            },
             chunk_prefix: self.chunk_prefix,
             socket_path: self.socket_path,
             runtime: Runtime::new().unwrap(),
-            tx: mpsc::channel::<String>().0,
-            rx: mpsc::channel::<String>().1,
             fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new())),
         }
     }
