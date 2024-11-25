@@ -9,6 +9,7 @@ use recorder::common::PipelineError;
 use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
+use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
@@ -19,7 +20,7 @@ pub trait Recorder {
     fn start(&mut self) -> Result<(), PipelineError>;
     fn stop(&mut self) -> Result<(), PipelineError>;
 
-    fn on_chunk(&mut self, f: fn(msg: &ChunkInfo) -> ());
+    fn set_on_chunk(&mut self, f: fn(msg: &ChunkInfo) -> ());
 }
 
 pub struct VideoRecorder {
@@ -33,6 +34,7 @@ pub struct VideoRecorder {
     tx: mpsc::Sender<String>,
     rx: mpsc::Receiver<String>,
     socket_path: String,
+    fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
 }
 
 impl Recorder for VideoRecorder {
@@ -71,7 +73,7 @@ impl Recorder for VideoRecorder {
         let frame_sink = dummy.expect("Frame sink is expected to be an appsink!");
         frame_sink.set_callbacks(
             gstreamer_app::AppSinkCallbacks::builder()
-                .new_sample(sample_callback())
+                .new_sample(sample_callback(self.fh.clone()))
                 .build(),
         );
 
@@ -94,8 +96,9 @@ impl Recorder for VideoRecorder {
 
         let tt = self.tx.clone();
         let callback = self.on_chunk.clone();
+        let frame_handler = self.fh.clone();
         self.runtime.spawn(async {
-            message_loop(bus, tt, callback).await;
+            message_loop(bus, tt, callback, frame_handler).await;
         });
         info!("Pipeline started");
 
@@ -117,13 +120,13 @@ impl Recorder for VideoRecorder {
         Ok(())
     }
 
-    fn on_chunk(&mut self, f: fn(&ChunkInfo) -> ()) {
+    fn set_on_chunk(&mut self, f: fn(&ChunkInfo) -> ()) {
         self.on_chunk = std::sync::Arc::new(Mutex::new(Some(f)));
         info!("Setting on_chunk callback");
     }
 }
 
-fn sample_callback() -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
+fn sample_callback(fh: std::sync::Arc<Mutex<FrameHandlerImpl>>) -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowError> {
     move |app_sink: &AppSink| {
         println!("got sample");
         let sample = app_sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
@@ -135,6 +138,7 @@ fn sample_callback() -> impl Fn(&AppSink) -> Result<gst::FlowSuccess, gst::FlowE
             );
             gst::FlowError::Error
         })?;
+        fh.lock().unwrap().handle_frame(&buffer).unwrap();
         let _ = buffer.map_readable().map_err(|_| {
             element_error!(
                 app_sink,
@@ -152,6 +156,7 @@ async fn message_loop(
     bus: gst::Bus,
     tx: mpsc::Sender<String>,
     on_chunk: std::sync::Arc<Mutex<Option<fn(&ChunkInfo) -> ()>>>,
+    fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
 ) {
     let mut messages = bus.stream();
 
@@ -163,6 +168,7 @@ async fn message_loop(
         match msg.view() {
             MessageView::Eos(..) => {
                 info!("EOS");
+                fh.lock().unwrap().collect_frames().unwrap();
                 tx.send("eos".to_string()).unwrap();
                 break;
             }
@@ -178,7 +184,7 @@ async fn message_loop(
             MessageView::Element(_) => {
                 if let Some(s) = msg.structure() {
                     match msg.src().unwrap().name().as_str() {
-                        "recording-sink" => {
+                        VIDEO_SINK => {
                             let msg_struct = s;
                             if msg.structure().unwrap().name() == "hls-segment-added" {
                                 debug!(
@@ -193,6 +199,7 @@ async fn message_loop(
                                     "duration: {}",
                                     msg_struct.get::<u64>("duration").unwrap().to_string()
                                 );
+                                fh.lock().unwrap().collect_frames().unwrap();
                                 if let Ok(f) = on_chunk.lock() {
                                     if let Some(ff) = f.as_ref() {
                                         let chunk = ChunkInfo::new(
@@ -280,6 +287,7 @@ impl VideoRecorderBuilder {
             runtime: Runtime::new().unwrap(),
             tx: mpsc::channel::<String>().0,
             rx: mpsc::channel::<String>().1,
+            fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new())),
         }
     }
 }
