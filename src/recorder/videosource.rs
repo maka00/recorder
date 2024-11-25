@@ -6,7 +6,6 @@ use gstreamer::{Caps, Element};
 use gstreamer_app::gst;
 use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::sync::mpsc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 

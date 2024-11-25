@@ -5,7 +5,7 @@ use recorder::videorecorder::Recorder;
 use recorder::videosource::Source;
 
 #[allow(dead_code)]
-pub trait VideoController {
+pub trait VideoController: Sync + Send {
     // Scan for video sources
     // returns: a list of video sources (e.g. /dev/video0, /dev/video1)
     fn scan(&self) -> Result<Vec<String>, PipelineError>;

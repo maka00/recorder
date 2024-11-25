@@ -7,7 +7,7 @@ use gstreamer::{element_error, Element};
 use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::sync::{mpsc, Mutex};
+use std::sync::Mutex;
 use tokio::runtime::Runtime;
 use tokio::time::*;
 
@@ -92,10 +92,12 @@ impl Recorder for VideoRecorder {
 
     fn stop(&self) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
+        /*
         self.gst_pipeline
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
+         */
         self.gst_pipeline
             .as_ref()
             .unwrap()

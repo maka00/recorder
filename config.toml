@@ -13,22 +13,6 @@ source_pipeline = """v4l2src name=video-source device=/dev/video0 \
             ! unixfdsink name=video-sink \
             """
 
-recording_pipeline_ = """unixfdsrc name=video-source \
-            ! queue \
-            ! tee name=t \
-            t. \
-            ! videoconvert \
-            ! video/x-raw, format=YUY2,width=3840, height=2160 \
-            ! queue \
-            ! videoconvert \
-            ! queue \
-            ! timeoverlay \
-            ! queue \
-            ! x264enc key-int-max=10 bitrate=20000 \
-            ! h264parse \
-            ! queue \
-            ! hlssink3 name=video-sink playlist-type=1  target-duration=6 \
-            """
 # The pipeline that will be used to read the video stream from the source pipeline
 # writes the video stream to a ts file and a frame to an appsink
 #! video/x-raw, format=YUY2,framerate=25/1, width=3840, height=2160 \
@@ -40,10 +24,10 @@ recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
             ! queue leaky=1 \
             ! videoconvert \
             ! video/x-raw, format=NV12 \
-            ! x264enc key-int-max=10 bitrate=20000 \
+            ! x264enc bitrate=20000 \
             ! h264parse \
             ! queue \
-            ! hlssink3 name=video-sink playlist-type=1  target-duration=6 \
+            ! hlssink3 name=video-sink playlist-type=1 target-duration=6 enable-endlist=false message-forward=true \
             t. \
             ! videoconvert \
             ! video/x-raw, format=BGR \
