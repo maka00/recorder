@@ -26,6 +26,7 @@ recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
             ! video/x-raw, format=NV12 \
             ! x264enc bitrate=20000 \
             ! h264parse \
+            ! video/x-h264, stream-format=byte-stream \
             ! queue \
             ! hlssink3 name=video-sink playlist-type=1 target-duration=6 enable-endlist=false message-forward=true \
             t. \

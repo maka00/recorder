@@ -1,3 +1,4 @@
+use chrono::{Duration, NaiveTime};
 use gstreamer::BufferRef;
 use gstreamer_app::gst;
 use opencv::boxed_ref::BoxedRef;
@@ -7,6 +8,8 @@ use opencv::{
     core::{self, hconcat, Mat, Size, Vector},
     imgcodecs, imgproc,
 };
+use std::fs::OpenOptions;
+use std::io::Write;
 
 const SPRITE_WIDTH: i32 = 4;
 const SPRITE_HEIGHT: i32 = 54;
@@ -21,6 +24,7 @@ pub trait FrameHandler {
 pub struct FrameHandlerImpl {
     pub frames: Vec<Mat>,
     pub idx: usize,
+    pub file: std::fs::File,
 }
 
 impl FrameHandlerImpl {
@@ -28,6 +32,11 @@ impl FrameHandlerImpl {
         FrameHandlerImpl {
             frames: Vec::new(),
             idx: 0,
+            file: OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open("thumbnails.vtt")
+                .unwrap(),
         }
     }
 }
@@ -59,24 +68,59 @@ impl FrameHandler for FrameHandlerImpl {
         let sprite = concat_sprites(create_sprites(&self.frames).as_ref());
 
         imgcodecs::imwrite(
-            format!("sprite_{:05}.png", self.idx).as_str(),
+            format!("sprite_{:05}.jpg", self.idx).as_str(),
             &sprite,
             &Vector::new(),
         )
         .unwrap();
         let tooltips = concat_sprites(&self.frames);
         imgcodecs::imwrite(
-            format!("tooltips_{:05}.png", self.idx).as_str(),
+            format!("tooltips_{:05}.jpg", self.idx).as_str(),
             &tooltips,
             &Vector::new(),
         )
         .unwrap();
         self.frames.clear();
+        // append or create a textfile with the sprite name
+
+        if self.idx == 0 {
+            writeln!(self.file, "WEBVTT").unwrap();
+            writeln!(self.file, "").unwrap();
+        }
+        for i in 1..=SPRITE_COUNT {
+            writeln!(self.file, "{}", i + self.idx * 6).unwrap();
+            let from_sec = (self.idx + i - 1) + self.idx * 6;
+            let to_sec = (self.idx + i) + self.idx * 6;
+            writeln!(
+                self.file,
+                "{} --> {}",
+                format_seconds(from_sec),
+                format_seconds(to_sec)
+            )
+            .unwrap();
+            let x = (i - 1) * WIDTH as usize;
+            let y = 0;
+            let w = WIDTH as usize;
+            let h = HEIGHT as usize;
+            writeln!(
+                self.file,
+                "tooltips_{:05}.jpg#xywh={},{},{},{}",
+                self.idx, x, y, w, h
+            )
+            .unwrap();
+            writeln!(self.file, "").unwrap();
+        }
         self.idx += 1;
         Ok(())
     }
 }
-
+fn format_seconds(seconds: usize) -> String {
+    let duration = Duration::seconds(seconds as i64);
+    let time =
+        NaiveTime::from_num_seconds_from_midnight_opt(duration.num_seconds() as u32 % 86400, 0)
+            .unwrap();
+    format!("{}", time.format("%H:%M:%S%.3f"))
+}
 fn create_sprite(input: &Mat) -> Mat {
     let new_height = SPRITE_HEIGHT;
     let scale_factor = new_height as f64 / input.rows() as f64;

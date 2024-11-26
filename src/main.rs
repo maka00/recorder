@@ -16,52 +16,6 @@ use log::{error, info};
 use std::io::Write;
 use std::sync::Arc;
 use std::{thread, time::Duration};
-fn record(conf: &RecordingConfig) {
-    const RECORDING_TIME: u64 = 30;
-    let recorder = recorder::videorecorder::VideoRecorderBuilder::new()
-        .with_pipeline(conf.recording_pipeline.to_string())
-        .with_chunks_sec(conf.chunk_size)
-        .with_output_dir(conf.output_dir.to_string())
-        .with_socket_path("/tmp/video0.sock".to_string())
-        .with_on_chunk(|chunk| {
-            info!(
-                "Chunk: {}, timestamp: {}, duration: {}",
-                chunk.chunk,
-                chunk.timestamp,
-                chunk.duration.as_secs()
-            );
-        })
-        .build();
-    let source = recorder::videosource::VideoSourceBuilder::new()
-        .with_fd_dir("/tmp")
-        .with_pipeline(conf.source_pipeline.as_str())
-        .build();
-    let controller = recorder::videocontroller::VideoControllerImpl::new(source, recorder);
-
-    if let Ok(status) = controller.start("video0") {
-        info!("Controller started: {}", status.device);
-    } else {
-        error!("Failed to start recorder");
-    }
-    thread::sleep(Duration::from_secs(2));
-    if let Ok(_) = controller.start_recording() {
-        info!("Recorder started");
-    } else {
-        error!("Failed to start recorder");
-    }
-
-    thread::sleep(Duration::from_secs(RECORDING_TIME));
-    if let Ok(_) = controller.stop_recording() {
-        info!("Recorder stopped");
-    } else {
-        error!("Failed to stop recorder");
-    }
-    if let Ok(_) = controller.stop("video0") {
-        info!("Controller stopped");
-    } else {
-        error!("Failed to stop recorder");
-    }
-}
 
 async fn root() -> Json<&'static str> {
     Json("Hello, World!")
@@ -142,14 +96,13 @@ async fn main() {
         let app = Router::new()
             // `GET /` goes to `root`
             .route("/", get(root))
-            .route("/start", get(start))
-            .route("/stop", get(stop))
+            .route("/start", post(start))
+            .route("/stop", post(stop))
             .with_state(shared_state);
 
         // run our app with hyper, listening globally on port 3000
         let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
         axum::serve(listener, app).await.unwrap();
-        record(&conf)
     } else {
         error!("Failed to read config file");
     }
