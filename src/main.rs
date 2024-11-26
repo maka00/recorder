@@ -4,18 +4,18 @@ mod utils;
 
 use crate::recorder::videocontroller::{VideoController, VideoControllerImpl};
 use crate::utils::config::RecordingConfig;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use chrono::Local;
 use env_logger::Env;
 use log::{error, info};
 use std::io::Write;
-use std::{thread, time::Duration};
 use std::sync::Arc;
-use axum::{
-    routing::{get, post},
-    http::StatusCode,
-    Json, Router,
-    extract::State,
-};
+use std::{thread, time::Duration};
 fn record(conf: &RecordingConfig) {
     const RECORDING_TIME: u64 = 30;
     let recorder = recorder::videorecorder::VideoRecorderBuilder::new()
@@ -69,16 +69,28 @@ async fn root() -> Json<&'static str> {
 
 async fn start(State(state): State<Arc<AppState>>) -> Json<&'static str> {
     info!("Starting recording");
-    state.controller.start("video0").expect("TODO: panic message");
-    state.controller.start_recording().expect("TODO: panic message");
+    state
+        .controller
+        .start("video0")
+        .expect("TODO: panic message");
+    state
+        .controller
+        .start_recording()
+        .expect("TODO: panic message");
     Json("Hello, World!")
 }
 async fn stop(State(state): State<Arc<AppState>>) -> Json<&'static str> {
     info!("Stopping recording");
-    state.controller.stop_recording().expect("TODO: panic message");
+    state
+        .controller
+        .stop_recording()
+        .expect("TODO: panic message");
     // sleep for 200ms to allow the last chunk to be written
     tokio::time::sleep(Duration::from_millis(200)).await;
-    state.controller.stop("video0").expect("TODO: panic message");
+    state
+        .controller
+        .stop("video0")
+        .expect("TODO: panic message");
     Json("Hello, World!")
 }
 

@@ -36,6 +36,9 @@ pub struct VideoRecorder {
 impl Recorder for VideoRecorder {
     fn start(&self) -> Result<(), PipelineError> {
         info!("Starting recording pipeline: {}", self.pipeline);
+        if self.gst_pipeline.as_ref().unwrap().current_state() == gst::State::Playing {
+            return Err(PipelineError::AlreadyStarted);
+        }
         let pipeline_bin = self
             .gst_pipeline
             .as_ref()
@@ -46,6 +49,7 @@ impl Recorder for VideoRecorder {
         if source_binding.has_property("socket-path", None) {
             source_binding.set_property("socket-path", &self.socket_path);
         }
+        debug!("using socket path: {}", self.socket_path);
         let sink_binding = pipeline_bin.by_name(VIDEO_SINK).unwrap();
         let output_location = format!("{}/{}_%05d.ts", &self.output_dir, &self.chunk_prefix);
         let ols = output_location.as_str();
@@ -92,6 +96,9 @@ impl Recorder for VideoRecorder {
 
     fn stop(&self) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
+        if self.gst_pipeline.as_ref().unwrap().current_state() == gst::State::Null {
+            return Err(PipelineError::NotRunning);
+        }
         /*
         self.gst_pipeline
             .as_ref()

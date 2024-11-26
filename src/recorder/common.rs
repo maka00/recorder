@@ -2,4 +2,6 @@
 pub enum PipelineError {
     ParseError,
     EncodingError,
+    NotRunning,
+    AlreadyStarted,
 }

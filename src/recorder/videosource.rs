@@ -47,6 +47,9 @@ impl Source for VideoSource {
 
     fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
         info!("Starting video source: {}", device);
+        if self.gst_pipeline.as_ref().unwrap().current_state() == gst::State::Playing {
+            return Err(PipelineError::AlreadyStarted);
+        }
         let device = device.to_string();
         info!("Starting source pipeline: {}", &self.pipeline_str);
 
@@ -109,6 +112,9 @@ impl Source for VideoSource {
 
     fn stop(&self, device: &str) -> Result<(), PipelineError> {
         info!("Stopping video source: {}", device);
+        if self.gst_pipeline.as_ref().unwrap().current_state() == gst::State::Null {
+            return Err(PipelineError::NotRunning);
+        }
         self.gst_pipeline
             .as_ref()
             .unwrap()
