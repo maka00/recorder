@@ -23,7 +23,9 @@ async fn root() -> Json<&'static str> {
 
 async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Starting recording");
-    state.lock().unwrap()
+    state
+        .lock()
+        .unwrap()
         .controller
         .start("video0")
         .expect("TODO: panic message");
@@ -32,7 +34,9 @@ async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> 
 
 async fn start_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Starting recording");
-    state.lock().unwrap()
+    state
+        .lock()
+        .unwrap()
         .controller
         .start_recording()
         .expect("TODO: panic message");
@@ -41,7 +45,9 @@ async fn start_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'st
 
 async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Stopping recording");
-    state.lock().unwrap()
+    state
+        .lock()
+        .unwrap()
         .controller
         .stop("video0")
         .expect("TODO: panic message");
@@ -50,7 +56,9 @@ async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
 
 async fn stop_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Stopping recording");
-    state.lock().unwrap()
+    state
+        .lock()
+        .unwrap()
         .controller
         .stop_recording()
         .expect("TODO: panic message");

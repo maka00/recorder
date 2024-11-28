@@ -1,6 +1,6 @@
-use gstreamer::Pipeline;
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
+use gstreamer::Pipeline;
 use recorder::common::PipelineError;
 use recorder::videorecorder::Recorder;
 use recorder::videosource::Source;
@@ -50,7 +50,8 @@ impl VideoController for VideoControllerImpl {
     }
 
     fn start_recording(&mut self) -> Result<(), PipelineError> {
-        self.recording_pipeline = self.recorder
+        self.recording_pipeline = self
+            .recorder
             .prepare_pipeline(self.recorder.get_pipeline().as_str())
             .expect("unable to prepare pipeline");
         self.recorder.start(&self.recording_pipeline)

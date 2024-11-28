@@ -3,12 +3,12 @@ use crate::recorder;
 use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 use futures::StreamExt;
 use gst::prelude::*;
+use gstreamer::ffi::GstPipeline;
 use gstreamer::{element_error, Element};
 use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
 use std::sync::Mutex;
-use gstreamer::ffi::GstPipeline;
 use tokio::runtime::Runtime;
 use tokio::time::*;
 
@@ -18,12 +18,11 @@ const FRAME_SINK: &str = "frame-sink";
 
 #[allow(dead_code)]
 pub trait Recorder: Sync + Send {
-    fn start(&self,pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
-    fn stop(&self,pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
+    fn start(&self, pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
+    fn stop(&self, pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
     fn prepare_pipeline(&self, cmd: &str) -> Result<Option<gst::Pipeline>, PipelineError>;
 
     fn get_pipeline(&self) -> String;
-
 }
 
 pub struct VideoRecorder {
@@ -38,29 +37,12 @@ pub struct VideoRecorder {
 }
 
 impl Recorder for VideoRecorder {
-    fn get_pipeline(&self) -> String {
-        self.pipeline.clone()
-    }
-    fn prepare_pipeline(&self, cmd: &str) -> Result<Option<gst::Pipeline>, PipelineError> {
-        match gst::parse::launch(cmd) {
-            Ok(pipeline) => {
-                info!("Pipeline created...");
-                Ok(Some(pipeline.downcast::<gst::Pipeline>().unwrap()))
-            }
-            Err(e) => {
-                error!("{e}");
-                Err(PipelineError::ParseError)
-            }
-        }
-    }
     fn start(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {
         info!("Starting recording pipeline: {}", self.pipeline);
         if gst_pipeline.as_ref().unwrap().current_state() == gst::State::Playing {
             return Err(PipelineError::AlreadyStarted);
         }
-        let pipeline_bin = gst_pipeline
-            .as_ref()
-            .expect("Pipeline mangled");
+        let pipeline_bin = gst_pipeline.as_ref().expect("Pipeline mangled");
 
         let source_binding = pipeline_bin.by_name(VIDEO_SOURCE).unwrap();
         if source_binding.has_property("socket-path", None) {
@@ -110,7 +92,6 @@ impl Recorder for VideoRecorder {
 
         Ok(())
     }
-
     fn stop(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
         if gst_pipeline.as_ref().unwrap().current_state() == gst::State::Null {
@@ -128,6 +109,22 @@ impl Recorder for VideoRecorder {
             .set_state(gst::State::Null)
             .unwrap();
         Ok(())
+    }
+    fn prepare_pipeline(&self, cmd: &str) -> Result<Option<gst::Pipeline>, PipelineError> {
+        match gst::parse::launch(cmd) {
+            Ok(pipeline) => {
+                info!("Pipeline created...");
+                Ok(Some(pipeline.downcast::<gst::Pipeline>().unwrap()))
+            }
+            Err(e) => {
+                error!("{e}");
+                Err(PipelineError::ParseError)
+            }
+        }
+    }
+
+    fn get_pipeline(&self) -> String {
+        self.pipeline.clone()
     }
 }
 
