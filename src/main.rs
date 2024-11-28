@@ -14,40 +14,48 @@ use chrono::Local;
 use env_logger::Env;
 use log::{error, info};
 use std::io::Write;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
 async fn root() -> Json<&'static str> {
     Json("Hello, World!")
 }
 
-async fn start(State(state): State<Arc<AppState>>) -> Json<&'static str> {
+async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Starting recording");
-    state
+    state.lock().unwrap()
         .controller
         .start("video0")
         .expect("TODO: panic message");
-    state
+    Json("Hello, World!")
+}
+
+async fn start_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+    info!("Starting recording");
+    state.lock().unwrap()
         .controller
         .start_recording()
         .expect("TODO: panic message");
     Json("Hello, World!")
 }
-async fn stop(State(state): State<Arc<AppState>>) -> Json<&'static str> {
+
+async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
     info!("Stopping recording");
-    state
-        .controller
-        .stop_recording()
-        .expect("TODO: panic message");
-    // sleep for 200ms to allow the last chunk to be written
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    state
+    state.lock().unwrap()
         .controller
         .stop("video0")
         .expect("TODO: panic message");
     Json("Hello, World!")
 }
 
+async fn stop_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+    info!("Stopping recording");
+    state.lock().unwrap()
+        .controller
+        .stop_recording()
+        .expect("TODO: panic message");
+    Json("Hello, World!")
+}
 struct AppState {
     controller: crate::recorder::videocontroller::VideoControllerImpl,
 }
@@ -69,7 +77,7 @@ async fn main() {
     info!("Starting video recorder");
     if let Ok(conf) = utils::config::Config::new().read_config("config.toml") {
         info!("Config: {:?}", conf);
-        let shared_state = Arc::new(AppState {
+        let shared_state = Arc::new(Mutex::new(AppState {
             controller: VideoControllerImpl::new(
                 recorder::videosource::VideoSourceBuilder::new()
                     .with_fd_dir("/tmp")
@@ -90,13 +98,15 @@ async fn main() {
                     })
                     .build(),
             ),
-        });
+        }));
 
         // build our application with a route
         let app = Router::new()
             // `GET /` goes to `root`
             .route("/", get(root))
             .route("/start", post(start))
+            .route("/recording/start", post(start_recording))
+            .route("/recording/stop", post(stop_recording))
             .route("/stop", post(stop))
             .with_state(shared_state);
 

@@ -19,6 +19,8 @@ const HEIGHT: i32 = 480;
 pub trait FrameHandler {
     fn handle_frame(&mut self, frame: &BufferRef) -> Result<(), gst::FlowError>;
     fn collect_frames(&mut self) -> Result<(), gst::FlowError>;
+
+    fn reset(&mut self);
 }
 
 pub struct FrameHandlerImpl {
@@ -112,6 +114,11 @@ impl FrameHandler for FrameHandlerImpl {
         }
         self.idx += 1;
         Ok(())
+    }
+
+    fn reset(&mut self) {
+        self.frames.clear();
+        self.idx = 0;
     }
 }
 fn format_seconds(seconds: usize) -> String {

@@ -1,3 +1,4 @@
+use gstreamer::Pipeline;
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
 use recorder::common::PipelineError;
@@ -20,7 +21,7 @@ pub trait VideoController: Sync + Send {
     fn stop(&self, device: &str) -> Result<(), PipelineError>;
 
     // Start recording
-    fn start_recording(&self) -> Result<(), PipelineError>;
+    fn start_recording(&mut self) -> Result<(), PipelineError>;
 
     // Stop recording
     fn stop_recording(&self) -> Result<(), PipelineError>;
@@ -32,6 +33,7 @@ pub trait VideoController: Sync + Send {
 pub struct VideoControllerImpl {
     recorder: Box<dyn Recorder>,
     source: Box<dyn Source>,
+    recording_pipeline: Option<Pipeline>,
 }
 
 impl VideoController for VideoControllerImpl {
@@ -47,12 +49,15 @@ impl VideoController for VideoControllerImpl {
         self.source.stop(device)
     }
 
-    fn start_recording(&self) -> Result<(), PipelineError> {
-        self.recorder.start()
+    fn start_recording(&mut self) -> Result<(), PipelineError> {
+        self.recording_pipeline = self.recorder
+            .prepare_pipeline(self.recorder.get_pipeline().as_str())
+            .expect("unable to prepare pipeline");
+        self.recorder.start(&self.recording_pipeline)
     }
 
     fn stop_recording(&self) -> Result<(), PipelineError> {
-        self.recorder.stop()
+        self.recorder.stop(&self.recording_pipeline)
     }
 
     fn take_still(&self, _: &str, _: &str) -> Result<(), PipelineError> {
@@ -68,6 +73,7 @@ impl VideoControllerImpl {
         VideoControllerImpl {
             source: Box::new(source),
             recorder: Box::new(recorder),
+            recording_pipeline: None,
         }
     }
 }
