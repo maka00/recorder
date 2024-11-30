@@ -28,7 +28,7 @@ recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
             ! h264parse \
             ! video/x-h264, stream-format=byte-stream \
             ! queue \
-            ! hlssink3 name=video-sink playlist-type=1 target-duration=6 enable-endlist=false message-forward=true \
+            ! hlssink3 name=video-sink playlist-type=1 target-duration=6 enable-endlist=true message-forward=true \
             t. \
             ! queue \
             ! videoconvert \

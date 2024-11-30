@@ -55,6 +55,7 @@ impl Recorder for VideoRecorder {
         if sink_binding.has_property("location", None) {
             sink_binding.set_property("location", output_location);
             sink_binding.set_property("target-duration", &self.chunk_sec);
+            sink_binding.set_property("playlist-location", format!("{}/playlist.m3u8", &self.output_dir));
             sink_binding.set_property("message-forward", true);
         }
         let frame_sink_binding = pipeline_bin.by_name(FRAME_SINK).unwrap();
