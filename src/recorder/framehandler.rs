@@ -26,19 +26,17 @@ pub trait FrameHandler {
 pub struct FrameHandlerImpl {
     pub frames: Vec<Mat>,
     pub idx: usize,
-    pub file: std::fs::File,
+    pub file: Option<std::fs::File>,
+    pub output_path: String,
 }
 
 impl FrameHandlerImpl {
-    pub fn new() -> FrameHandlerImpl {
+    pub fn new(output_path: String) -> FrameHandlerImpl {
         FrameHandlerImpl {
             frames: Vec::new(),
             idx: 0,
-            file: OpenOptions::new()
-                .create(true)
-                .write(true)
-                .open("thumbnails.vtt")
-                .unwrap(),
+            output_path: output_path.clone(),
+            file: None,
         }
     }
 }
@@ -70,14 +68,14 @@ impl FrameHandler for FrameHandlerImpl {
         let sprite = concat_sprites(create_sprites(&self.frames).as_ref());
 
         imgcodecs::imwrite(
-            format!("sprite_{:05}.jpg", self.idx).as_str(),
+            format!("{}/sprite_{:05}.jpg", self.output_path, self.idx).as_str(),
             &sprite,
             &Vector::new(),
         )
         .unwrap();
         let tooltips = concat_sprites(&self.frames);
         imgcodecs::imwrite(
-            format!("tooltips_{:05}.jpg", self.idx).as_str(),
+            format!("{}/tooltips_{:05}.jpg", self.output_path, self.idx).as_str(),
             &tooltips,
             &Vector::new(),
         )
@@ -86,15 +84,23 @@ impl FrameHandler for FrameHandlerImpl {
         // append or create a textfile with the sprite name
 
         if self.idx == 0 {
-            writeln!(self.file, "WEBVTT").unwrap();
-            writeln!(self.file, "").unwrap();
+            self.file = Some(
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .open(format!("{}/thumbnails.vtt", self.output_path))
+                    .unwrap(),
+            );
+            writeln!(self.file.as_mut().unwrap(), "WEBVTT").unwrap();
+            writeln!(self.file.as_mut().unwrap(), "").unwrap();
         }
         for i in 1..=SPRITE_COUNT {
-            writeln!(self.file, "{}", i + self.idx * 6).unwrap();
+            let vtt_file = self.file.as_mut().unwrap();
+            writeln!(vtt_file, "{}", i + self.idx * 6).unwrap();
             let from_sec = (self.idx + i - 1) + self.idx * 6;
             let to_sec = (self.idx + i) + self.idx * 6;
             writeln!(
-                self.file,
+                vtt_file,
                 "{} --> {}",
                 format_seconds(from_sec),
                 format_seconds(to_sec)
@@ -105,12 +111,12 @@ impl FrameHandler for FrameHandlerImpl {
             let w = WIDTH as usize;
             let h = HEIGHT as usize;
             writeln!(
-                self.file,
+                vtt_file,
                 "tooltips_{:05}.jpg#xywh={},{},{},{}",
                 self.idx, x, y, w, h
             )
             .unwrap();
-            writeln!(self.file, "").unwrap();
+            writeln!(vtt_file, "").unwrap();
         }
         self.idx += 1;
         Ok(())

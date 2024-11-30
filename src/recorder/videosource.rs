@@ -62,7 +62,7 @@ impl Source for VideoSource {
         let sink = pipeline_bin
             .by_name(VIDEO_SINK)
             .expect("Unable to get video sink");
-        sink.set_property("socket-path", format!("/tmp/{}.sock", &device));
+        sink.set_property("socket-path", format!("/{}/{}.sock", self.fd_dir, &device));
 
         let source = pipeline_bin
             .by_name(VIDEO_SOURCE)
@@ -183,7 +183,7 @@ impl VideoSourceBuilder {
     pub fn new() -> VideoSourceBuilder {
         gst::init().unwrap();
         VideoSourceBuilder {
-            fd_dir: "/dev".to_string(),
+            fd_dir: "/tmp".to_string(),
             pipeline_str:
                 "v4l2src name=video-source device=/dev/video0 ! unixfdsink name=video-sink"
                     .to_string(),

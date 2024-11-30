@@ -3,8 +3,7 @@ use crate::recorder;
 use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 use futures::StreamExt;
 use gst::prelude::*;
-use gstreamer::ffi::GstPipeline;
-use gstreamer::{element_error, Element};
+use gstreamer::element_error;
 use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
@@ -281,11 +280,11 @@ impl VideoRecorderBuilder {
             pipeline: self.pipeline.clone(),
             on_chunk: std::sync::Arc::new(Mutex::new(self.on_chunk)),
             chunk_sec: self.chunk_sec,
-            output_dir: self.output_dir,
+            output_dir: self.output_dir.clone(),
             chunk_prefix: self.chunk_prefix,
             socket_path: self.socket_path,
             runtime: Runtime::new().unwrap(),
-            fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new())),
+            fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new(self.output_dir))),
         }
     }
 }

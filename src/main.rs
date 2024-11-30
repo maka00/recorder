@@ -6,7 +6,6 @@ use crate::recorder::videocontroller::{VideoController, VideoControllerImpl};
 use crate::utils::config::RecordingConfig;
 use axum::{
     extract::State,
-    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -15,7 +14,6 @@ use env_logger::Env;
 use log::{error, info};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use std::{thread, time::Duration};
 
 async fn root() -> Json<&'static str> {
     Json("Hello, World!")
@@ -84,6 +82,12 @@ async fn main() {
         .init();
     info!("Starting video recorder");
     if let Ok(conf) = utils::config::Config::new().read_config("config.toml") {
+        let recording_path = std::env::var("RECORDING_PATH").unwrap_or(conf.output_dir.to_string());
+        info!("Recording path: {}", recording_path);
+        let conf = RecordingConfig {
+            output_dir: recording_path,
+            ..conf
+        };
         info!("Config: {:?}", conf);
         let shared_state = Arc::new(Mutex::new(AppState {
             controller: VideoControllerImpl::new(
