@@ -1,11 +1,11 @@
+use crate::dtos::messages::StillInfo;
+use crate::recorder::stillrecorder::{StillRecorder, StillRecorderBuilder};
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
 use gstreamer::Pipeline;
 use recorder::common::PipelineError;
 use recorder::videorecorder::Recorder;
 use recorder::videosource::Source;
-use crate::dtos::messages::StillInfo;
-use crate::recorder::stillrecorder::{StillRecorder, StillRecorderBuilder};
 
 #[allow(dead_code)]
 pub trait VideoController: Sync + Send {
@@ -53,11 +53,17 @@ impl VideoController for VideoControllerImpl {
     }
 
     fn start_recording(&mut self) -> Result<(), PipelineError> {
-        self.recording_pipeline = self
+        let recording_pipeline = self
             .recorder
             .prepare_pipeline(self.recorder.get_pipeline().as_str())
-            .expect("unable to prepare pipeline");
-        self.recorder.start(&self.recording_pipeline)
+            .map_or_else(|_| Err(PipelineError::ParseError), |pipeline| Ok(pipeline));
+        match recording_pipeline {
+            Ok(pipeline) => {
+                self.recording_pipeline = pipeline;
+                self.recorder.start(&self.recording_pipeline)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn stop_recording(&self) -> Result<(), PipelineError> {

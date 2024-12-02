@@ -10,6 +10,7 @@ use opencv::{
 };
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::ops::Sub;
 use std::sync::mpsc::Receiver;
 const SPRITE_WIDTH: i32 = 4;
 const SPRITE_HEIGHT: i32 = 54;
@@ -181,7 +182,8 @@ fn concat_sprites(input: &Vec<Mat>) -> Mat {
         let ref_mat = bref_from_mat!(mat).unwrap();
         roi_vec.push(ref_mat);
     }
-    for _ in 0..(6 - input.len()) {
+    let diff = SPRITE_COUNT.sub(input.len());
+    for _ in 0..diff {
         let ref_mat = bref_from_mat!(input.last().unwrap()).unwrap();
         roi_vec.push(ref_mat);
     }

@@ -1,11 +1,11 @@
-use std::{thread, time};
-use crate::dtos::messages::{StillInfo};
+use crate::dtos::messages::StillInfo;
 use crate::recorder;
 use gst::prelude::*;
-use gstreamer::{Element};
+use gstreamer::Element;
 use gstreamer_app::gst;
 use log::{debug, error, info};
 use recorder::common::PipelineError;
+use std::{thread, time};
 
 const VIDEO_SOURCE: &str = "video-source";
 const VIDEO_SINK: &str = "video-sink";
@@ -27,8 +27,7 @@ impl StillRecorder for StillRecorderImpl {
     fn take_still(&self, name: &str) -> Result<StillInfo, PipelineError> {
         debug!("Taking still");
         let still_file = format!("{}/{}-{}.jpg", self.output_dir, self.prefix, name);
-        let mut gst_pipeline =
-        match gst::parse::launch(self.pipeline_str.as_str()) {
+        let mut gst_pipeline = match gst::parse::launch(self.pipeline_str.as_str()) {
             Ok(pipeline) => {
                 info!("Pipeline created...");
                 Ok(pipeline.downcast::<gst::Pipeline>().unwrap())
@@ -37,7 +36,8 @@ impl StillRecorder for StillRecorderImpl {
                 error!("{e}");
                 Err(PipelineError::ParseError)
             }
-        }.expect("Error launching pipeline");
+        }
+        .expect("Error launching pipeline");
         let source_element = gst_pipeline
             .by_name(VIDEO_SOURCE)
             .expect("Source bin not found");
@@ -51,12 +51,12 @@ impl StillRecorder for StillRecorderImpl {
             sink_element.set_property("location", &still_file);
         }
         let bus = gst_pipeline.bus().expect("Pipeline without bus");
-        gst_pipeline
-            .set_state(gst::State::Playing)
-            .expect("Unable to set the pipeline to the `Playing` state");
+        gst_pipeline.set_state(gst::State::Playing).map_err(|_e| {
+            info!("got issues...");
+            return PipelineError::EncodingError;
+        })?;
 
-
-       // while pipeline is playing wait
+        // while pipeline is playing wait
         while let Some(msg) = bus.timed_pop(gst::ClockTime::from_mseconds(1000)) {
             match msg.view() {
                 gst::MessageView::Eos(..) => {
@@ -149,11 +149,10 @@ impl StillRecorderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::remove_file;
     use super::*;
+    use std::fs::remove_file;
     #[test]
     fn test_take_still() {
-
         let _ = gst::init();
         let still_recorder = StillRecorderBuilder::new()
             .with_device("video0")

@@ -2,10 +2,15 @@ mod dtos;
 mod recorder;
 mod utils;
 
+use crate::dtos::messages::StillInfo;
 use crate::recorder::videocontroller::{VideoController, VideoControllerImpl};
 use crate::utils::config::RecordingConfig;
+use crate::ApiError::StillError;
+use crate::ApiResponse::{Still, VideoRecording};
 use axum::{
     extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -15,65 +20,113 @@ use log::{error, info};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
+enum ApiResponse {
+    Still(StillInfo),
+    VideoRecording,
+}
+impl IntoResponse for ApiResponse {
+    fn into_response(self) -> Response {
+        match self {
+            Self::Still(still) => (StatusCode::OK, Json(still)).into_response(),
+            Self::VideoRecording => (StatusCode::OK).into_response(),
+        }
+    }
+}
+
+enum ApiError {
+    StillError,
+    RecordingError,
+    SourceError,
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::StillError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json("Error taking still"),
+            )
+                .into_response(),
+            Self::RecordingError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json("Error during recording"),
+            )
+                .into_response(),
+            Self::SourceError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json("Error in source"),
+            )
+                .into_response(),
+        }
+    }
+}
+
 async fn root() -> Json<&'static str> {
     Json("Hello, World!")
 }
 
-async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
     info!("Starting recording");
     state
         .lock()
         .unwrap()
         .controller
         .start("video0")
-        .expect("TODO: panic message");
-    Json("Hello, World!")
+        .map_or_else(
+            |_| Err(ApiError::SourceError),
+            |still| Ok(VideoRecording),
+        )
 }
 
-async fn start_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+async fn start_recording(
+    State(state): State<Arc<Mutex<AppState>>>,
+) -> Result<ApiResponse, ApiError> {
     info!("Starting recording");
     state
         .lock()
         .unwrap()
         .controller
         .start_recording()
-        .expect("TODO: panic message");
-    Json("Hello, World!")
+        .map_or_else(
+            |_| Err(ApiError::RecordingError),
+            |still| Ok(VideoRecording),
+        )
 }
 
-async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
     info!("Stopping recording");
-    state
-        .lock()
-        .unwrap()
-        .controller
-        .stop("video0")
-        .expect("TODO: panic message");
-    Json("Hello, World!")
+    state.lock().unwrap().controller.stop("video0").map_or_else(
+        |_| Err(ApiError::RecordingError),
+        |still| Ok(VideoRecording),
+    )
 }
 
-async fn stop_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+async fn stop_recording(
+    State(state): State<Arc<Mutex<AppState>>>,
+) -> Result<ApiResponse, ApiError> {
     info!("Stopping recording");
     state
         .lock()
         .unwrap()
         .controller
         .stop_recording()
-        .expect("TODO: panic message");
-    Json("Hello, World!")
+        .map_or_else(
+            |_| Err(ApiError::RecordingError),
+            |still| Ok(VideoRecording),
+        )
 }
 
-async fn take_still(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+async fn take_still(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
     info!("Stopping recording");
     // a string holding the current time
     let time = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
-    state
+    let still_info = state
         .lock()
         .unwrap()
         .controller
         .take_still("video0", time.as_str())
-        .expect("TODO: panic message");
-    Json("Hello, World!")
+        .map_or_else(|_| Err(StillError), |still| Ok(Still(still)));
+    still_info
 }
 struct AppState {
     controller: crate::recorder::videocontroller::VideoControllerImpl,

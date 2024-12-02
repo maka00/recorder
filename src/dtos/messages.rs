@@ -1,5 +1,5 @@
+use serde::Serialize;
 use std::time::Duration;
-
 #[derive(Default)]
 pub struct ChunkInfo {
     pub chunk: String,
@@ -31,7 +31,7 @@ pub enum RecordingState {
     EOS,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize)]
 pub struct StillInfo {
     pub device: String,
     pub width: u32,

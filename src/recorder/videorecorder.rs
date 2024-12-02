@@ -118,21 +118,24 @@ impl Recorder for VideoRecorder {
     }
     fn stop(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);
+        if let None = gst_pipeline.as_ref() {
+            return Err(PipelineError::NotRunning);
+        }
         if gst_pipeline.as_ref().unwrap().current_state() == gst::State::Null {
             return Err(PipelineError::NotRunning);
         }
-        /*
-        self.gst_pipeline
-            .as_ref()
-            .unwrap()
-            .send_event(gst::event::Eos::new());
-         */
-        gst_pipeline
+        let res = gst_pipeline
             .as_ref()
             .unwrap()
             .set_state(gst::State::Null)
-            .unwrap();
-        Ok(())
+            .map_or_else(
+                |e| {
+                    error!("{e}");
+                    Err(PipelineError::EncodingError)
+                },
+                |_| Ok(()),
+            );
+        res
     }
     fn prepare_pipeline(&self, cmd: &str) -> Result<Option<gst::Pipeline>, PipelineError> {
         match gst::parse::launch(cmd) {
