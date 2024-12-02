@@ -1,5 +1,5 @@
 use chrono::{Duration, NaiveTime};
-use gstreamer::{info, BufferRef};
+use gstreamer::BufferRef;
 use gstreamer_app::gst;
 use opencv::boxed_ref::BoxedRef;
 use opencv::core::Vec3b;
@@ -89,8 +89,8 @@ impl FrameHandler for FrameHandlerImpl {
         )
         .unwrap();
         self.frames.clear();
-        // append or create a textfile with the sprite name
 
+        // vtt file creation
         if self.idx == 0 {
             self.file = Some(
                 OpenOptions::new()
@@ -182,7 +182,7 @@ fn concat_sprites(input: &Vec<Mat>) -> Mat {
         let ref_mat = bref_from_mat!(mat).unwrap();
         roi_vec.push(ref_mat);
     }
-    let diff = SPRITE_COUNT.sub(input.len());
+    let diff = SPRITE_COUNT.checked_sub(input.len()).unwrap_or(0);
     for _ in 0..diff {
         let ref_mat = bref_from_mat!(input.last().unwrap()).unwrap();
         roi_vec.push(ref_mat);

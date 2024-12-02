@@ -1,5 +1,5 @@
 use crate::dtos::messages::StillInfo;
-use crate::recorder::stillrecorder::{StillRecorder, StillRecorderBuilder};
+use crate::recorder::stillrecorder::StillRecorder;
 use crate::{dtos, recorder};
 use dtos::messages::VideoSourceInfo;
 use gstreamer::Pipeline;

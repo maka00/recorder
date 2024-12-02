@@ -9,7 +9,6 @@ use gstreamer::element_error;
 use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::ptr::write;
 use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
@@ -81,7 +80,6 @@ impl Recorder for VideoRecorder {
                 ),
             );
         }
-        let (sender, receiver) = mpsc::sync_channel::<String>(1);
         let frame_sink_binding = pipeline_bin.by_name(FRAME_SINK).unwrap();
         let dummy = frame_sink_binding.downcast_ref::<AppSink>();
         let frame_sink = dummy.expect("Frame sink is expected to be an appsink!");

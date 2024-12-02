@@ -52,11 +52,9 @@ impl IntoResponse for ApiError {
                 Json("Error during recording"),
             )
                 .into_response(),
-            Self::SourceError => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json("Error in source"),
-            )
-                .into_response(),
+            Self::SourceError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json("Error in source")).into_response()
+            }
         }
     }
 }
@@ -72,10 +70,7 @@ async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse,
         .unwrap()
         .controller
         .start("video0")
-        .map_or_else(
-            |_| Err(ApiError::SourceError),
-            |still| Ok(VideoRecording),
-        )
+        .map_or_else(|_| Err(ApiError::SourceError), |_| Ok(VideoRecording))
 }
 
 async fn start_recording(
@@ -87,18 +82,17 @@ async fn start_recording(
         .unwrap()
         .controller
         .start_recording()
-        .map_or_else(
-            |_| Err(ApiError::RecordingError),
-            |still| Ok(VideoRecording),
-        )
+        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
 }
 
 async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
     info!("Stopping recording");
-    state.lock().unwrap().controller.stop("video0").map_or_else(
-        |_| Err(ApiError::RecordingError),
-        |still| Ok(VideoRecording),
-    )
+    state
+        .lock()
+        .unwrap()
+        .controller
+        .stop("video0")
+        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
 }
 
 async fn stop_recording(
@@ -110,10 +104,7 @@ async fn stop_recording(
         .unwrap()
         .controller
         .stop_recording()
-        .map_or_else(
-            |_| Err(ApiError::RecordingError),
-            |still| Ok(VideoRecording),
-        )
+        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
 }
 
 async fn take_still(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {

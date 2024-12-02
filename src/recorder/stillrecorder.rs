@@ -1,7 +1,6 @@
 use crate::dtos::messages::StillInfo;
 use crate::recorder;
 use gst::prelude::*;
-use gstreamer::Element;
 use gstreamer_app::gst;
 use log::{debug, error, info};
 use recorder::common::PipelineError;
@@ -27,7 +26,7 @@ impl StillRecorder for StillRecorderImpl {
     fn take_still(&self, name: &str) -> Result<StillInfo, PipelineError> {
         debug!("Taking still");
         let still_file = format!("{}/{}-{}.jpg", self.output_dir, self.prefix, name);
-        let mut gst_pipeline = match gst::parse::launch(self.pipeline_str.as_str()) {
+        let gst_pipeline = match gst::parse::launch(self.pipeline_str.as_str()) {
             Ok(pipeline) => {
                 info!("Pipeline created...");
                 Ok(pipeline.downcast::<gst::Pipeline>().unwrap())
