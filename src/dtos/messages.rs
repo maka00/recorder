@@ -30,3 +30,12 @@ pub enum RecordingState {
     ChunkCreated,
     EOS,
 }
+
+#[derive(Default)]
+pub struct StillInfo {
+    pub device: String,
+    pub width: u32,
+    pub height: u32,
+    pub format: String,
+    pub still_file: String,
+}

@@ -46,6 +46,7 @@ recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
                 drop=false \
                 emit-signals=true
             """
+still_pipeline = "unixfdsrc name=video-source ! queue ! videoconvert ! jpegenc snapshot=true ! queue ! filesink name=video-sink"
 chunk_size = 6
 output_dir = "."
 chunk_prefix = "chunk"

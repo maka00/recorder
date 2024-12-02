@@ -5,6 +5,7 @@ use toml;
 pub struct RecordingConfig {
     pub source_pipeline: String,
     pub recording_pipeline: String,
+    pub still_pipeline: String,
     pub chunk_size: u32,
     pub output_dir: String,
     pub chunk_prefix: String,
@@ -34,6 +35,7 @@ mod tests {
         let config = RecordingConfig {
             recording_pipeline: "test".to_string(),
             source_pipeline: "test".to_string(),
+            still_pipeline: "test".to_string(),
             chunk_size: 1024,
             output_dir: "/tmp".to_string(),
             chunk_prefix: "chunk".to_string(),

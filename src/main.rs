@@ -62,6 +62,19 @@ async fn stop_recording(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'sta
         .expect("TODO: panic message");
     Json("Hello, World!")
 }
+
+async fn take_still(State(state): State<Arc<Mutex<AppState>>>) -> Json<&'static str> {
+    info!("Stopping recording");
+    // a string holding the current time
+    let time = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+    state
+        .lock()
+        .unwrap()
+        .controller
+        .take_still("video0", time.as_str())
+        .expect("TODO: panic message");
+    Json("Hello, World!")
+}
 struct AppState {
     controller: crate::recorder::videocontroller::VideoControllerImpl,
 }
@@ -109,6 +122,10 @@ async fn main() {
                         );
                     })
                     .build(),
+                recorder::stillrecorder::StillRecorderBuilder::new()
+                    .with_output_dir(conf.output_dir.as_str())
+                    .with_pipeline_str(conf.still_pipeline.as_str())
+                    .build(),
             ),
         }));
 
@@ -117,6 +134,7 @@ async fn main() {
             // `GET /` goes to `root`
             .route("/", get(root))
             .route("/start", post(start))
+            .route("/still", post(take_still))
             .route("/recording/start", post(start_recording))
             .route("/recording/stop", post(stop_recording))
             .route("/stop", post(stop))
