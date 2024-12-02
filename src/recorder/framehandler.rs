@@ -1,5 +1,5 @@
 use chrono::{Duration, NaiveTime};
-use gstreamer::BufferRef;
+use gstreamer::{info, BufferRef};
 use gstreamer_app::gst;
 use opencv::boxed_ref::BoxedRef;
 use opencv::core::Vec3b;
@@ -10,7 +10,7 @@ use opencv::{
 };
 use std::fs::OpenOptions;
 use std::io::Write;
-
+use std::sync::mpsc::Receiver;
 const SPRITE_WIDTH: i32 = 4;
 const SPRITE_HEIGHT: i32 = 54;
 const SPRITE_COUNT: usize = 6;
@@ -28,20 +28,29 @@ pub struct FrameHandlerImpl {
     pub idx: usize,
     pub file: Option<std::fs::File>,
     pub output_path: String,
+    pub receiver: Receiver<String>,
 }
 
 impl FrameHandlerImpl {
-    pub fn new(output_path: String) -> FrameHandlerImpl {
+    pub fn new(output_path: String, receiver: Receiver<String>) -> FrameHandlerImpl {
         FrameHandlerImpl {
             frames: Vec::new(),
             idx: 0,
             output_path: output_path.clone(),
             file: None,
+            receiver,
         }
     }
 }
 impl FrameHandler for FrameHandlerImpl {
     fn handle_frame(&mut self, frame: &BufferRef) -> Result<(), gst::FlowError> {
+        let asw = self
+            .receiver
+            .recv_timeout(std::time::Duration::from_millis(50));
+        if asw.is_ok() {
+            println!("Received collect signal");
+            self.collect_frames()?;
+        }
         let map = frame.map_readable().map_err(|_| gst::FlowError::Error)?;
         let mut rgb = Vec::<u8>::new();
         map.clone_into(rgb.as_mut());
@@ -55,9 +64,7 @@ impl FrameHandler for FrameHandlerImpl {
         }
         .unwrap();
         self.frames.push(mat.clone());
-        if self.frames.len() == SPRITE_COUNT {
-            self.collect_frames()?;
-        }
+
         Ok(())
     }
 

@@ -2,12 +2,15 @@ use crate::dtos::messages::ChunkInfo;
 use crate::recorder;
 use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
 use futures::StreamExt;
+use gio::prelude::*;
+use gio::{glib, Cancellable, File, FileCreateFlags, FileOutputStream};
 use gst::prelude::*;
 use gstreamer::element_error;
 use gstreamer_app::{gst, AppSink};
 use log::{debug, error, info};
 use recorder::common::PipelineError;
-use std::sync::Mutex;
+use std::ptr::write;
+use std::sync::{mpsc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::time::*;
 
@@ -33,6 +36,7 @@ pub struct VideoRecorder {
     runtime: Runtime,
     socket_path: String,
     fh: std::sync::Arc<Mutex<FrameHandlerImpl>>,
+    sender: mpsc::SyncSender<String>,
 }
 
 impl Recorder for VideoRecorder {
@@ -55,9 +59,29 @@ impl Recorder for VideoRecorder {
         if sink_binding.has_property("location", None) {
             sink_binding.set_property("location", output_location);
             sink_binding.set_property("target-duration", &self.chunk_sec);
-            sink_binding.set_property("playlist-location", format!("{}/playlist.m3u8", &self.output_dir));
+            sink_binding.set_property(
+                "playlist-location",
+                format!("{}/playlist.m3u8", &self.output_dir),
+            );
             sink_binding.set_property("message-forward", true);
+            let sender = self.sender.clone();
+            sink_binding.connect_closure(
+                "get-fragment-stream",
+                false,
+                glib::closure!(
+                    move |_elem: &gst::Element, filename: &str| -> FileOutputStream {
+                        info!("stream_id: {}", filename);
+                        let file = File::for_path(filename);
+                        sender
+                            .try_send(filename.to_string())
+                            .expect("Send fragment event");
+                        file.replace(None, false, FileCreateFlags::NONE, Cancellable::NONE)
+                            .unwrap()
+                    }
+                ),
+            );
         }
+        let (sender, receiver) = mpsc::sync_channel::<String>(1);
         let frame_sink_binding = pipeline_bin.by_name(FRAME_SINK).unwrap();
         let dummy = frame_sink_binding.downcast_ref::<AppSink>();
         let frame_sink = dummy.expect("Frame sink is expected to be an appsink!");
@@ -277,6 +301,7 @@ impl VideoRecorderBuilder {
     }
 
     pub fn build(self) -> VideoRecorder {
+        let (sender, receiver) = mpsc::sync_channel::<String>(1);
         VideoRecorder {
             pipeline: self.pipeline.clone(),
             on_chunk: std::sync::Arc::new(Mutex::new(self.on_chunk)),
@@ -285,7 +310,8 @@ impl VideoRecorderBuilder {
             chunk_prefix: self.chunk_prefix,
             socket_path: self.socket_path,
             runtime: Runtime::new().unwrap(),
-            fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new(self.output_dir))),
+            fh: std::sync::Arc::new(Mutex::new(FrameHandlerImpl::new(self.output_dir, receiver))),
+            sender,
         }
     }
 }

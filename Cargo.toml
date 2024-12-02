@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 byte-slice-cast = "1.2.2"
 gstreamer = "0.23.3"
+gio = "0.20.6"
 gstreamer-app = "0.23.3"
 futures = "0.3.31"
 log = "0.4"

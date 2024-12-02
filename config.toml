@@ -21,25 +21,30 @@ recording_pipeline = """unixfdsrc name=video-source socket-path=/tmp/source-fd
             ! queue \
             ! tee name=t \
             t. \
-            ! queue leaky=1 \
             ! videoconvert \
             ! video/x-raw, format=NV12 \
-            ! x264enc bitrate=20000 \
-            ! h264parse \
+            ! x264enc bitrate=20000 key-int-max=10 tune=zerolatency \
+            ! h264parse config-interval=-1 \
             ! video/x-h264, stream-format=byte-stream \
-            ! queue \
-            ! hlssink3 name=video-sink playlist-type=1 target-duration=6 enable-endlist=true message-forward=true \
+            ! hlssink3 \
+                name=video-sink \
+                playlist-type=1 \
+                target-duration=6 \
+                enable-endlist=true \
+                message-forward=true \
             t. \
-            ! queue \
             ! videoconvert \
             ! video/x-raw, format=BGR \
             ! videorate \
             ! video/x-raw, framerate=1/1 \
-            ! queue \
             ! videoscale \
             ! video/x-raw, width=720, height=480 \
-            ! queue \
-            ! appsink name=frame-sink sync=true max-buffers=1 drop=true sync=true emit-signals=true
+            ! appsink name=frame-sink \
+                async=false \
+                sync=true \
+                max-buffers=1 \
+                drop=false \
+                emit-signals=true
             """
 chunk_size = 6
 output_dir = "."
