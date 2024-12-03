@@ -115,10 +115,13 @@ impl Source for VideoSource {
         if self.gst_pipeline.as_ref().unwrap().current_state() == gst::State::Null {
             return Err(PipelineError::NotRunning);
         }
+        /*
         self.gst_pipeline
             .as_ref()
             .unwrap()
             .send_event(gst::event::Eos::new());
+
+         */
         self.gst_pipeline
             .as_ref()
             .unwrap()

@@ -1,12 +1,15 @@
 use crate::dtos::messages::{RecordingInfo, StillInfo};
+use crate::recorder::preview::Preview;
 use crate::recorder::stillrecorder::StillRecorder;
 use crate::{dtos, recorder};
 use chrono::Local;
 use dtos::messages::VideoSourceInfo;
 use gstreamer::Pipeline;
+use log::error;
 use recorder::common::PipelineError;
 use recorder::videorecorder::Recorder;
 use recorder::videosource::Source;
+use std::{thread, time};
 
 #[allow(dead_code)]
 pub trait VideoController: Sync + Send {
@@ -17,7 +20,7 @@ pub trait VideoController: Sync + Send {
     // Start the video source
     // device: the device to start
     // returns: the video source info
-    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
+    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError>;
 
     // Stop the video source
     // device: the device to start
@@ -37,7 +40,9 @@ pub struct VideoControllerImpl {
     recorder: Box<dyn Recorder>,
     still: Box<dyn StillRecorder>,
     source: Box<dyn Source>,
+    preview: Box<dyn Preview>,
     recording_pipeline: Option<Pipeline>,
+    preview_pipeline: Option<Pipeline>,
 }
 
 impl VideoController for VideoControllerImpl {
@@ -45,11 +50,32 @@ impl VideoController for VideoControllerImpl {
         self.source.scan()
     }
 
-    fn start(&self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
-        self.source.start(device)
+    fn start(&mut self, device: &str) -> Result<VideoSourceInfo, PipelineError> {
+        let res = self.source.start(device);
+        let preview_pipeline = self
+            .preview
+            .prepare_pipeline(self.preview.get_pipeline().as_str())
+            .map_or_else(
+                |_| Err(PipelineError::ParseError),
+                |pipeline| {
+                    self.preview_pipeline = pipeline;
+                    Ok(())
+                },
+            );
+        match preview_pipeline {
+            Ok(_) => self
+                .preview
+                .start(&self.preview_pipeline)
+                .map_or_else(|_| Err(PipelineError::EncodingError), |_| res),
+            Err(e) => Err(e),
+        }
     }
 
     fn stop(&self, device: &str) -> Result<(), PipelineError> {
+        if let Err(e) = self.preview.stop(&self.preview_pipeline) {
+            error!("Error stopping preview pipeline: {:?}", e);
+        }
+        thread::sleep(time::Duration::from_secs(1));
         self.source.stop(device)
     }
 
@@ -82,12 +108,15 @@ impl VideoControllerImpl {
         source: impl Source + 'static,
         recorder: impl Recorder + 'static,
         still: impl StillRecorder + 'static,
+        preview: impl Preview + 'static,
     ) -> VideoControllerImpl {
         VideoControllerImpl {
             source: Box::new(source),
             recorder: Box::new(recorder),
             still: Box::new(still),
+            preview: Box::new(preview),
             recording_pipeline: None,
+            preview_pipeline: None,
         }
     }
 }
@@ -95,6 +124,7 @@ impl VideoControllerImpl {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::recorder::preview::PreviewBuilder;
     use crate::recorder::stillrecorder::StillRecorderBuilder;
     use crate::recorder::videorecorder::VideoRecorderBuilder;
     use crate::recorder::videosource::VideoSourceBuilder;
@@ -126,7 +156,14 @@ mod test {
             )
             .with_still_file_postfix("still")
             .build();
-        let mut controller = VideoControllerImpl::new(source, recorder, still);
+        let preview = PreviewBuilder::new()
+            .with_device("video0")
+            .with_pipeline_str(
+                "videotestsrc name=video-source ! videoconvert ! fakesink name=video-sink",
+            )
+            .with_socket_path("/tmp/video.sock")
+            .build();
+        let mut controller = VideoControllerImpl::new(source, recorder, still, preview);
         let res = controller.start("video0");
         assert_eq!(res.is_ok(), true);
         let res = controller.start_recording();

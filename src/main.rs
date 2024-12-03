@@ -172,6 +172,9 @@ async fn main() {
                     .with_output_dir(conf.output_dir.as_str())
                     .with_pipeline_str(conf.still_pipeline.as_str())
                     .build(),
+                recorder::preview::PreviewBuilder::new()
+                    .with_pipeline_str(conf.preview_pipeline.as_str())
+                    .build(),
             ),
         }));
 
