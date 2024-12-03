@@ -1,5 +1,4 @@
 use crate::{dtos, recorder};
-use chrono::{DateTime, Local};
 use dtos::messages::VideoSourceInfo;
 use futures::StreamExt;
 use gst::prelude::*;
@@ -223,7 +222,7 @@ mod test {
     #[test]
     fn build_test() {
         let _ = env_logger::try_init();
-        let mut source = VideoSourceBuilder::new()
+        let source = VideoSourceBuilder::new()
             .with_pipeline(
                 format!("videotestsrc name={VIDEO_SOURCE} ! unixfdsink name={VIDEO_SINK}").as_str(),
             )

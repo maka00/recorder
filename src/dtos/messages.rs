@@ -28,6 +28,7 @@ pub struct VideoSourceInfo {
     pub format: String,
 }
 
+#[allow(dead_code)]
 pub enum RecordingState {
     ChunkCreated,
     EOS,

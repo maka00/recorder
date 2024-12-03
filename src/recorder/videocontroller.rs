@@ -137,5 +137,6 @@ mod test {
         assert_eq!(res.is_ok(), true);
         let res = controller.stop("video0");
         assert_eq!(res.is_ok(), true);
+        let _ = remove_file("test-still.jpg");
     }
 }

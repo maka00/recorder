@@ -78,8 +78,9 @@ impl StillRecorder for StillRecorderImpl {
             .set_state(gst::State::Null)
             .expect("Unable to set the pipeline to the `Playing` state");
 
-        if let state = gst_pipeline.state(gst::ClockTime::from_mseconds(1000)) {
-            debug!("Pipeline state: {:?}", state);
+        if let (Ok(state), before, after) = gst_pipeline.state(gst::ClockTime::from_mseconds(1000))
+        {
+            debug!("Pipeline state: {:?}, {:?}, {:?}", state, before, after);
         }
 
         Ok(StillInfo {
@@ -110,16 +111,19 @@ impl StillRecorderBuilder {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_device(mut self, device: &str) -> StillRecorderBuilder {
         self.device = device.to_string();
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_still_file_postfix(mut self, still_file_prefix: &str) -> StillRecorderBuilder {
         self.postfix = still_file_prefix.to_string();
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_socket_path(mut self, socket_path: &str) -> StillRecorderBuilder {
         self.socket_path = socket_path.to_string();
         self

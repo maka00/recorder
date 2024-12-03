@@ -11,7 +11,6 @@ use opencv::{
 };
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::ops::Sub;
 use std::sync::mpsc::Receiver;
 
 const SPRITE_WIDTH: i32 = 4;
@@ -216,11 +215,12 @@ fn concat_sprites(input: &Vec<Mat>) -> Mat {
 mod tests {
     use super::*;
     use opencv::core::CV_8UC3;
+    use std::fs::remove_file;
 
     #[test]
     fn test_opencv() {
-        let mat = Mat::default();
         let img3: Mat = unsafe { Mat::new_nd(&[480, 640], CV_8UC3).unwrap() };
         imgcodecs::imwrite("sprite.png", &img3, &Vector::new()).unwrap();
+        let _ = remove_file("sprite.png");
     }
 }
