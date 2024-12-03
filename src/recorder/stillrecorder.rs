@@ -16,7 +16,7 @@ pub trait StillRecorder: Sync + Send {
 
 pub struct StillRecorderImpl {
     device: String,
-    prefix: String,
+    postfix: String,
     socket_path: String,
     output_dir: String,
     pipeline_str: String,
@@ -25,7 +25,7 @@ pub struct StillRecorderImpl {
 impl StillRecorder for StillRecorderImpl {
     fn take_still(&self, name: &str) -> Result<StillInfo, PipelineError> {
         debug!("Taking still");
-        let still_file = format!("{}/{}-{}.jpg", self.output_dir, self.prefix, name);
+        let still_file = format!("{}/{}-{}.jpg", self.output_dir, name, self.postfix);
         let gst_pipeline = match gst::parse::launch(self.pipeline_str.as_str()) {
             Ok(pipeline) => {
                 info!("Pipeline created...");
@@ -94,7 +94,7 @@ impl StillRecorder for StillRecorderImpl {
 
 pub struct StillRecorderBuilder {
     device: String,
-    prefix: String,
+    postfix: String,
     socket_path: String,
     pipeline_str: String,
     output_dir: String,
@@ -103,7 +103,7 @@ impl StillRecorderBuilder {
     pub fn new() -> StillRecorderBuilder {
         StillRecorderBuilder {
             device: "video0".to_string(),
-            prefix: "still".to_string(),
+            postfix: "still".to_string(),
             socket_path: "/tmp/video0.sock".to_string(),
             pipeline_str: "unixfdsrc name=video-source ! queue ! videoconvert ! jpegenc snapshot=true ! queue ! filesink name=video-sink".to_string(),
             output_dir: "./".to_string(),
@@ -115,8 +115,8 @@ impl StillRecorderBuilder {
         self
     }
 
-    pub fn with_still_file_prefix(mut self, still_file_prefix: &str) -> StillRecorderBuilder {
-        self.prefix = still_file_prefix.to_string();
+    pub fn with_still_file_postfix(mut self, still_file_prefix: &str) -> StillRecorderBuilder {
+        self.postfix = still_file_prefix.to_string();
         self
     }
 
@@ -138,7 +138,7 @@ impl StillRecorderBuilder {
     pub fn build(&self) -> StillRecorderImpl {
         StillRecorderImpl {
             device: self.device.clone(),
-            prefix: self.prefix.clone(),
+            postfix: self.postfix.clone(),
             socket_path: self.socket_path.clone(),
             output_dir: self.output_dir.clone(),
             pipeline_str: self.pipeline_str.clone(),
@@ -156,14 +156,14 @@ mod tests {
         let still_recorder = StillRecorderBuilder::new()
             .with_device("video0")
             .with_pipeline_str("videotestsrc name=video-source ! videoconvert ! jpegenc snapshot=true ! filesink name=video-sink")
-            .with_still_file_prefix("still")
+            .with_still_file_postfix("still")
             .with_socket_path("/tmp/video.sock")
             .with_output_dir("/tmp")
             .build();
         let still_info = still_recorder.take_still("dummy").unwrap();
         thread::sleep(time::Duration::from_secs(1));
         assert_eq!(still_info.device, "video0");
-        assert_eq!(still_info.still_file, "/tmp/still-dummy.jpg");
-        remove_file("/tmp/still-dummy.jpg").unwrap();
+        assert_eq!(still_info.still_file, "/tmp/dummy-still.jpg");
+        remove_file("/tmp/dummy-still.jpg").unwrap();
     }
 }

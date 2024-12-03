@@ -1,4 +1,5 @@
-use chrono::{Duration, NaiveTime};
+use crate::dtos;
+use chrono::{DateTime, Duration, Local, NaiveTime};
 use gstreamer::BufferRef;
 use gstreamer_app::gst;
 use opencv::boxed_ref::BoxedRef;
@@ -12,6 +13,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::ops::Sub;
 use std::sync::mpsc::Receiver;
+
 const SPRITE_WIDTH: i32 = 4;
 const SPRITE_HEIGHT: i32 = 54;
 const SPRITE_COUNT: usize = 6;
@@ -20,8 +22,8 @@ const HEIGHT: i32 = 480;
 pub trait FrameHandler {
     fn handle_frame(&mut self, frame: &BufferRef) -> Result<(), gst::FlowError>;
     fn collect_frames(&mut self) -> Result<(), gst::FlowError>;
-
     fn reset(&mut self);
+    fn set_start_timestamp(&mut self, timestamp: DateTime<Local>);
 }
 
 pub struct FrameHandlerImpl {
@@ -30,6 +32,7 @@ pub struct FrameHandlerImpl {
     pub file: Option<std::fs::File>,
     pub output_path: String,
     pub receiver: Receiver<String>,
+    start_timestamp: DateTime<Local>,
 }
 
 impl FrameHandlerImpl {
@@ -39,11 +42,17 @@ impl FrameHandlerImpl {
             idx: 0,
             output_path: output_path.clone(),
             file: None,
+            start_timestamp: Local::now(),
             receiver,
         }
     }
 }
+
 impl FrameHandler for FrameHandlerImpl {
+    fn set_start_timestamp(&mut self, timestamp: DateTime<Local>) {
+        self.start_timestamp = timestamp;
+    }
+
     fn handle_frame(&mut self, frame: &BufferRef) -> Result<(), gst::FlowError> {
         let asw = self
             .receiver
@@ -74,16 +83,27 @@ impl FrameHandler for FrameHandlerImpl {
             return Ok(());
         }
         let sprite = concat_sprites(create_sprites(&self.frames).as_ref());
-
+        let timestamp = self
+            .start_timestamp
+            .format(dtos::messages::TIMESTAMP_FORMAT)
+            .to_string();
         imgcodecs::imwrite(
-            format!("{}/sprite_{:05}.jpg", self.output_path, self.idx).as_str(),
+            format!(
+                "{}/{}-sprite_{:05}.jpg",
+                self.output_path, timestamp, self.idx
+            )
+            .as_str(),
             &sprite,
             &Vector::new(),
         )
         .unwrap();
         let tooltips = concat_sprites(&self.frames);
         imgcodecs::imwrite(
-            format!("{}/tooltips_{:05}.jpg", self.output_path, self.idx).as_str(),
+            format!(
+                "{}/{}-tooltips_{:05}.jpg",
+                self.output_path, timestamp, self.idx
+            )
+            .as_str(),
             &tooltips,
             &Vector::new(),
         )
@@ -96,7 +116,7 @@ impl FrameHandler for FrameHandlerImpl {
                 OpenOptions::new()
                     .create(true)
                     .write(true)
-                    .open(format!("{}/thumbnails.vtt", self.output_path))
+                    .open(format!("{}/{}-thumbnails.vtt", self.output_path, timestamp))
                     .unwrap(),
             );
             writeln!(self.file.as_mut().unwrap(), "WEBVTT").unwrap();
@@ -120,8 +140,8 @@ impl FrameHandler for FrameHandlerImpl {
             let h = HEIGHT as usize;
             writeln!(
                 vtt_file,
-                "tooltips_{:05}.jpg#xywh={},{},{},{}",
-                self.idx, x, y, w, h
+                "{}-tooltips_{:05}.jpg#xywh={},{},{},{}",
+                timestamp, self.idx, x, y, w, h
             )
             .unwrap();
             writeln!(vtt_file, "").unwrap();

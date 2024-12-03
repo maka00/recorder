@@ -1,6 +1,7 @@
-use crate::dtos::messages::ChunkInfo;
-use crate::recorder;
+use crate::dtos::messages::{ChunkInfo, RecordingInfo};
 use crate::recorder::framehandler::{FrameHandler, FrameHandlerImpl};
+use crate::{dtos, recorder};
+use chrono::{DateTime, Local};
 use futures::StreamExt;
 use gio::prelude::*;
 use gio::{glib, Cancellable, File, FileCreateFlags, FileOutputStream};
@@ -19,7 +20,11 @@ const FRAME_SINK: &str = "frame-sink";
 
 #[allow(dead_code)]
 pub trait Recorder: Sync + Send {
-    fn start(&self, pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
+    fn start(
+        &self,
+        pipeline: &Option<gst::Pipeline>,
+        start_timestamp: &DateTime<Local>,
+    ) -> Result<RecordingInfo, PipelineError>;
     fn stop(&self, pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError>;
     fn prepare_pipeline(&self, cmd: &str) -> Result<Option<gst::Pipeline>, PipelineError>;
 
@@ -39,7 +44,11 @@ pub struct VideoRecorder {
 }
 
 impl Recorder for VideoRecorder {
-    fn start(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {
+    fn start(
+        &self,
+        gst_pipeline: &Option<gst::Pipeline>,
+        start_timestamp: &DateTime<Local>,
+    ) -> Result<RecordingInfo, PipelineError> {
         info!("Starting recording pipeline: {}", self.pipeline);
         if gst_pipeline.as_ref().unwrap().current_state() == gst::State::Playing {
             return Err(PipelineError::AlreadyStarted);
@@ -52,7 +61,13 @@ impl Recorder for VideoRecorder {
         }
         debug!("using socket path: {}", self.socket_path);
         let sink_binding = pipeline_bin.by_name(VIDEO_SINK).unwrap();
-        let output_location = format!("{}/{}_%05d.ts", &self.output_dir, &self.chunk_prefix);
+        let timestamp = start_timestamp
+            .format(dtos::messages::TIMESTAMP_FORMAT)
+            .to_string();
+        let output_location = format!(
+            "{}/{}-{}_%05d.ts",
+            &self.output_dir, &timestamp, &self.chunk_prefix
+        );
         let ols = output_location.as_str();
         info!("Output location: {}", ols);
         if sink_binding.has_property("location", None) {
@@ -60,7 +75,7 @@ impl Recorder for VideoRecorder {
             sink_binding.set_property("target-duration", &self.chunk_sec);
             sink_binding.set_property(
                 "playlist-location",
-                format!("{}/playlist.m3u8", &self.output_dir),
+                format!("{}/{}-playlist.m3u8", &self.output_dir, &timestamp),
             );
             sink_binding.set_property("message-forward", true);
             let sender = self.sender.clone();
@@ -107,12 +122,17 @@ impl Recorder for VideoRecorder {
 
         let callback = self.on_chunk.clone();
         let frame_handler = self.fh.clone();
+        self.fh
+            .as_ref()
+            .lock()
+            .unwrap()
+            .set_start_timestamp(start_timestamp.clone());
         self.runtime.spawn(async {
             message_loop(bus, callback, frame_handler).await;
         });
         info!("Pipeline started");
 
-        Ok(())
+        Ok(RecordingInfo { prefix: timestamp })
     }
     fn stop(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {
         info!("Stopping pipeline: {}", self.pipeline);

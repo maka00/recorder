@@ -2,11 +2,11 @@ mod dtos;
 mod recorder;
 mod utils;
 
-use crate::dtos::messages::StillInfo;
+use crate::dtos::messages::{RecordingInfo, StillInfo, TIMESTAMP_FORMAT};
 use crate::recorder::videocontroller::{VideoController, VideoControllerImpl};
 use crate::utils::config::RecordingConfig;
 use crate::ApiError::StillError;
-use crate::ApiResponse::{Still, VideoRecording};
+use crate::ApiResponse::{Still, VideoRecording, VideoSource};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -22,13 +22,15 @@ use std::sync::{Arc, Mutex};
 
 enum ApiResponse {
     Still(StillInfo),
-    VideoRecording,
+    VideoRecording(RecordingInfo),
+    VideoSource,
 }
 impl IntoResponse for ApiResponse {
     fn into_response(self) -> Response {
         match self {
             Self::Still(still) => (StatusCode::OK, Json(still)).into_response(),
-            Self::VideoRecording => (StatusCode::OK).into_response(),
+            Self::VideoRecording(info) => (StatusCode::OK, Json(info)).into_response(),
+            Self::VideoSource => (StatusCode::OK).into_response(),
         }
     }
 }
@@ -70,7 +72,7 @@ async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse,
         .unwrap()
         .controller
         .start("video0")
-        .map_or_else(|_| Err(ApiError::SourceError), |_| Ok(VideoRecording))
+        .map_or_else(|_| Err(ApiError::SourceError), |_| Ok(VideoSource))
 }
 
 async fn start_recording(
@@ -82,7 +84,7 @@ async fn start_recording(
         .unwrap()
         .controller
         .start_recording()
-        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
+        .map_or_else(|_| Err(ApiError::RecordingError), |r| Ok(VideoRecording(r)))
 }
 
 async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
@@ -92,7 +94,7 @@ async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, 
         .unwrap()
         .controller
         .stop("video0")
-        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
+        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoSource))
 }
 
 async fn stop_recording(
@@ -104,13 +106,13 @@ async fn stop_recording(
         .unwrap()
         .controller
         .stop_recording()
-        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoRecording))
+        .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoSource))
 }
 
 async fn take_still(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, ApiError> {
     info!("Stopping recording");
     // a string holding the current time
-    let time = Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+    let time = Local::now().format(TIMESTAMP_FORMAT).to_string();
     let still_info = state
         .lock()
         .unwrap()

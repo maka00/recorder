@@ -1,5 +1,7 @@
 use serde::Serialize;
 use std::time::Duration;
+
+pub const TIMESTAMP_FORMAT: &str = "%Y%m%d-%H%M%S";
 #[derive(Default)]
 pub struct ChunkInfo {
     pub chunk: String,
@@ -29,6 +31,11 @@ pub struct VideoSourceInfo {
 pub enum RecordingState {
     ChunkCreated,
     EOS,
+}
+
+#[derive(Default, Serialize)]
+pub struct RecordingInfo {
+    pub prefix: String,
 }
 
 #[derive(Default, Serialize)]

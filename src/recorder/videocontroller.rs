@@ -1,6 +1,7 @@
-use crate::dtos::messages::StillInfo;
+use crate::dtos::messages::{RecordingInfo, StillInfo};
 use crate::recorder::stillrecorder::StillRecorder;
 use crate::{dtos, recorder};
+use chrono::Local;
 use dtos::messages::VideoSourceInfo;
 use gstreamer::Pipeline;
 use recorder::common::PipelineError;
@@ -23,7 +24,7 @@ pub trait VideoController: Sync + Send {
     fn stop(&self, device: &str) -> Result<(), PipelineError>;
 
     // Start recording
-    fn start_recording(&mut self) -> Result<(), PipelineError>;
+    fn start_recording(&mut self) -> Result<RecordingInfo, PipelineError>;
 
     // Stop recording
     fn stop_recording(&self) -> Result<(), PipelineError>;
@@ -52,7 +53,8 @@ impl VideoController for VideoControllerImpl {
         self.source.stop(device)
     }
 
-    fn start_recording(&mut self) -> Result<(), PipelineError> {
+    fn start_recording(&mut self) -> Result<RecordingInfo, PipelineError> {
+        let timestamp = Local::now();
         let recording_pipeline = self
             .recorder
             .prepare_pipeline(self.recorder.get_pipeline().as_str())
@@ -60,7 +62,7 @@ impl VideoController for VideoControllerImpl {
         match recording_pipeline {
             Ok(pipeline) => {
                 self.recording_pipeline = pipeline;
-                self.recorder.start(&self.recording_pipeline)
+                self.recorder.start(&self.recording_pipeline, &timestamp)
             }
             Err(e) => Err(e),
         }
@@ -93,18 +95,25 @@ impl VideoControllerImpl {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::recorder::stillrecorder::StillRecorderBuilder;
     use crate::recorder::videorecorder::VideoRecorderBuilder;
     use crate::recorder::videosource::VideoSourceBuilder;
+    use std::fs::remove_file;
 
     #[test]
     fn test_video_controller() {
+        let _ = remove_file("/tmp/video0.sock");
         let source = VideoSourceBuilder::new()
-            .with_fd_dir("/dev")
+            .with_fd_dir("/tmp")
             .with_pipeline("videotestsrc name=video-source ! unixfdsink name=video-sink")
             .build();
         let recorder = VideoRecorderBuilder::new()
             .with_pipeline(
-                "unixfdsrc name=video-source ! videoconvert ! fakesink name=recording-sink"
+                "unixfdsrc name=video-source ! tee name=t \
+                t. \
+                ! videoconvert ! fakesink name=video-sink \
+                t. \
+                ! videoconvert ! appsink name=frame-sink"
                     .to_string(),
             )
             .with_socket_path("/tmp/video0.sock".to_string())
@@ -115,12 +124,14 @@ mod test {
                 &*"videotestsrc name=video-source ! videoconvert ! jpegenc snapshot=true ! filesink name=video-sink"
                     .to_string(),
             )
-            .with_still_file_prefix("still")
+            .with_still_file_postfix("still")
             .build();
         let mut controller = VideoControllerImpl::new(source, recorder, still);
         let res = controller.start("video0");
         assert_eq!(res.is_ok(), true);
         let res = controller.start_recording();
+        assert_eq!(res.is_ok(), true);
+        let res = controller.take_still("video0", "test");
         assert_eq!(res.is_ok(), true);
         let res = controller.stop_recording();
         assert_eq!(res.is_ok(), true);
