@@ -54,6 +54,7 @@ preview_pipeline = """unixfdsrc name=video-source socket-path=/tmp/video0.sock \
             ! webrtcsink  run-signalling-server=true \
                 run-web-server=true web-server-directory=client \
                 async-handling=false \
+                ice-transport-policy=all \
                 name=video-sink
 """
 

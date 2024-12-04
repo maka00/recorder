@@ -1,0 +1,42 @@
+version: 3
+
+tasks:
+  build-builder:
+    desc: "Build Docker image"
+    cmds:
+      - |
+        echo "Building Docker image..."
+        docker build -t recorder-builder:1.0 -f docker/builder-image.Dockerfile .
+  build-app-solo:
+    desc: "Build Docker image for app (container only) - for debugging"
+    cmds:
+      - |
+        echo "Building Docker image..."
+        docker build -t recorder-app:1.0 -f docker/builder.Dockerfile .
+  build-app:
+    desc: "Build Docker image for app (runtime)"
+    cmds:
+      - |
+        echo "Building Docker image..."
+        ls
+        docker build -t recorder-app:1.0 -f docker/Dockerfile .
+
+  # -p 3000:3000  -p 8080:8080  -p 8443:8443 \
+  run:
+    desc: "Run Docker container"
+    cmds:
+      - |
+        echo "Running Docker container..."
+        docker run \
+          --network=host \
+          -e RUST_LOG=info \
+          -e RECORDING_PATH=/opt \
+          --privileged \
+          --name recorder-app \
+          recorder-app:1.0
+  inspect-docker:
+    desc: "Inspect Docker container"
+    cmds:
+      - |
+        echo "Inspecting Docker container..."
+        docker exec -it recorder-app /bin/bash
