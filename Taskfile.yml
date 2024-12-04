@@ -1,0 +1,11 @@
+version: 3
+includes:
+  docker: ./docker/Taskfile.yml
+
+tasks:
+  build-app:
+    desc: "Build app"
+    cmds:
+      - | 
+        echo "Building app..."
+        cargo build --release
