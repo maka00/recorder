@@ -28,12 +28,20 @@ tasks:
       - |
         echo "Running Docker container..."
         docker run \
+          -it \
           --network=host \
           -e RUST_LOG=info \
           -e RECORDING_PATH=/opt \
           --privileged \
           --name recorder-app \
           recorder-app:1.0
+  stop:
+    desc: "Stop Docker container"
+    cmds:
+      - |
+        echo "Stopping Docker container..."
+        docker stop recorder-app
+        docker rm recorder-app
   inspect-docker:
     desc: "Inspect Docker container"
     cmds:
