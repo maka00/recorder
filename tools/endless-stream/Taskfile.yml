@@ -5,14 +5,14 @@ vars:
   VIDEO_PATH: '{{.VIDEO_PATH | default "/tmp/video.mp4"}}'
   OUTPUT_PATH: '{{.OUTPUT_PATH | default "/dev/video10"}}'
 tasks:
-  getvideo:
+  getvideo-hd:
     desc: "Get video in HD"
     cmds:
       - |
         wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_HD}} 
     silent: true
 
-  getvideo:
+  getvideo-sd:
     desc: "Get video in SD"
     cmds:
       - |
