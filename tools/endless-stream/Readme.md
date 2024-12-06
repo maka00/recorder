@@ -39,6 +39,18 @@ v4l2-ctl --list-devices
 gst-launch-1.0 videotestsrc ! videoconvert ! v4l2sink device=/dev/video10
 # VLC can now open /dev/video10 and display a test screen
 ```
+## Install permanetly
+create a file in `/etc/modules-load.d/v4l2loopback.conf` with the following content:
+```text
+v4l2loopback
+````
+and configure the module via the file `/etc/modprobe.d/v4l2loopback.conf` with the following content:
+```text
+options v4l2loopback exclusive_caps=1
+options v4l2loopback devices=2
+options v4l2loopback video_nr=10,11
+options v4l2loopback card_label="loopback-1,loopback-2"
+```
 
 ## Dependencies
 * Gstreamer
