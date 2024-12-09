@@ -1,6 +1,8 @@
 version: 3
 includes:
   docker: ./docker/Taskfile.yml
+  endless-stream: ./tools/endless-stream/Taskfile.yml
+  command: ./tools/Taskfile.yml
 
 tasks:
   build-app:

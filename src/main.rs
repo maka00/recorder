@@ -71,7 +71,7 @@ async fn start(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse,
         .lock()
         .unwrap()
         .controller
-        .start("video0")
+        .start("video10")
         .map_or_else(|_| Err(ApiError::SourceError), |_| Ok(VideoSource))
 }
 
@@ -93,7 +93,7 @@ async fn stop(State(state): State<Arc<Mutex<AppState>>>) -> Result<ApiResponse, 
         .lock()
         .unwrap()
         .controller
-        .stop("video0")
+        .stop("video10")
         .map_or_else(|_| Err(ApiError::RecordingError), |_| Ok(VideoSource))
 }
 
@@ -127,6 +127,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    let with_overlay: bool = std::env::var("WITH_OVERLAY").unwrap_or("false".to_string()) == "true";
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
         .format(|buf, record| {
             writeln!(
@@ -158,7 +159,7 @@ async fn main() {
                     .with_pipeline(conf.recording_pipeline.to_string())
                     .with_chunks_sec(conf.chunk_size)
                     .with_output_dir(conf.output_dir.to_string())
-                    .with_socket_path("/tmp/video0.sock".to_string())
+                    .with_socket_path("/tmp/video10.sock".to_string())
                     .with_on_chunk(|chunk| {
                         info!(
                             "Chunk: {}, timestamp: {}, duration: {}",
@@ -173,6 +174,7 @@ async fn main() {
                     .with_pipeline_str(conf.still_pipeline.as_str())
                     .build(),
                 recorder::preview::PreviewBuilder::new()
+                    .with_socket_path("/tmp/video10.sock")
                     .with_pipeline_str(conf.preview_pipeline.as_str())
                     .build(),
             ),
@@ -190,7 +192,7 @@ async fn main() {
             .with_state(shared_state);
 
         // run our app with hyper, listening globally on port 3000
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:4000").await.unwrap();
         axum::serve(listener, app).await.unwrap();
     } else {
         error!("Failed to read config file");

@@ -2,6 +2,7 @@ version: '3'
 vars:
   VIDEO_DOWNLOAD_URL_HD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4
   VIDEO_DOWNLOAD_URL_SD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4
+  VIDEO_DOWNLOAD_URL_FHD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4
   VIDEO_PATH: '{{.VIDEO_PATH | default "/tmp/video.mp4"}}'
   OUTPUT_PATH: '{{.OUTPUT_PATH | default "/dev/video10"}}'
 tasks:
@@ -18,6 +19,14 @@ tasks:
       - |
         wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_SD}} 
     silent: true
+
+  getvideo-fhd:
+    desc: "Get video in FHD"
+    cmds:
+      - |
+        wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_FHD}} 
+    silent: true
+
 
   run:
     desc: "Run stream"
