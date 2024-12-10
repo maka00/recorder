@@ -24,7 +24,7 @@ tasks:
     cmds:
       - |
         docker run \
-        -it \
+        -d \
         --rm \
         -p {{.PORT}}:3000 \
         --name recorder-overlay \
