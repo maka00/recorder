@@ -6,20 +6,29 @@ tasks:
     cmds:
       - |
         echo "Building Docker image..."
-        docker build -t recorder-builder:1.0 -f docker/builder-image.Dockerfile .
+        docker build -t recorder-builder:1.0 -f builder-image.Dockerfile .
   build-app-solo:
     desc: "Build Docker image for app (container only) - for debugging"
     cmds:
       - |
         echo "Building Docker image..."
-        docker build -t recorder-app:1.0 -f docker/builder.Dockerfile .
+        docker build -t recorder-app:1.0 -f builder.Dockerfile .
   build-app:
     desc: "Build Docker image for app (runtime)"
     cmds:
       - |
         echo "Building Docker image..."
         ls
-        docker build -t recorder-app:1.0 -f docker/Dockerfile .
+        docker build -t recorder-app:1.0 -f Dockerfile .
+
+  build-runtime:
+    desc: "Build Docker image for app (runtime)"
+    cmds:
+      - |
+        echo "Building Docker image..."
+        ls
+        docker build -t recorder-runtime:1.0 -f runtime.Dockerfile .
+
 
   # -p 3000:3000  -p 8080:8080  -p 8443:8443 \
   run:

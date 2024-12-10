@@ -1,0 +1,10 @@
+{
+  "name": "la1tv-roses-graphics",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.17.1",
+    "nodemon": "^1.11.0",
+    "socket.io": "^1.7.3",
+    "underscore": "^1.8.3"
+  }
+}

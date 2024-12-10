@@ -1,7 +1,14 @@
 version: 3
 includes:
-  docker: ./docker/Taskfile.yml
-  endless-stream: ./tools/endless-stream/Taskfile.yml
+  docker: 
+    taskfile: ./docker/Taskfile.yml
+    dir: ./docker
+  endless-stream: 
+    taskfile: ./tools/endless-stream/Taskfile.yml
+    dir: ./tools/endless-stream
+  overlay: 
+    taskfile: ./tools/overlay-server/Taskfile.yml
+    dir: ./tools/overlay-server
   command: ./tools/Taskfile.yml
 
 tasks:
