@@ -84,13 +84,13 @@ Build on Manjaro Linux with the following dependencies:
 
 The output of the application is a series of video chunks and a playlist file. The playlist file is updated with each new chunk of video.
 
-| Description   | Output                                                      |
-|---------------|-------------------------------------------------------------|
-| video chunks  | < not shown here >                                          |
-| playlist file | [tooltips](./doc/images/20241211-083017-playlist.m3u8) |
+| Description   | Output                                                       |
+|---------------|--------------------------------------------------------------|
+| video chunks  | ts files (not shown here)                                    |
+| playlist file | [m3u8](./doc/images/20241211-083017-playlist.m3u8)           |
 | tooltip file  | ![tooltips](./doc/images/20241211-083017-tooltips_00005.jpg) |
-| sprite file   | ![sprite](./doc/images/20241211-083017-sprite_00005.jpg)    |
-| the vtt file  | [vtt](./doc/images/20241211-083017-thumbnails.vtt)          |
+| sprite file   | ![sprite](./doc/images/20241211-083017-sprite_00005.jpg)     |
+| the vtt file  | [vtt](./doc/images/20241211-083017-thumbnails.vtt)           |
 
 The sprite file takes 4 pixels in the middle for each second of video. The sprite file is used to give a rough overview of the video.
 The vtt file created can be used by the http://plyr.io player to display the thumbnails during the playback.
