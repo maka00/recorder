@@ -74,6 +74,9 @@ impl StillRecorder for StillRecorderImpl {
             }
         }
         thread::sleep(time::Duration::from_secs(1));
+        if log::log_enabled!(log::Level::Debug) {
+            gst_pipeline.debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "still");
+        }
         gst_pipeline
             .set_state(gst::State::Null)
             .expect("Unable to set the pipeline to the `Playing` state");
@@ -103,7 +106,7 @@ pub struct StillRecorderBuilder {
 impl StillRecorderBuilder {
     pub fn new() -> StillRecorderBuilder {
         StillRecorderBuilder {
-            device: "video0".to_string(),
+            device: "video10".to_string(),
             postfix: "still".to_string(),
             socket_path: "/tmp/video0.sock".to_string(),
             pipeline_str: "unixfdsrc name=video-source ! queue ! videoconvert ! jpegenc snapshot=true ! queue ! filesink name=video-sink".to_string(),

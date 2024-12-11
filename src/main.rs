@@ -149,6 +149,12 @@ async fn main() {
             ..conf
         };
         info!("Config: {:?}", conf);
+        // preview pipeline
+        let preview_pipeline = if with_overlay {
+            conf.preview_pipeline_overlay
+        } else {
+            conf.preview_pipeline
+        };
         let shared_state = Arc::new(Mutex::new(AppState {
             controller: VideoControllerImpl::new(
                 recorder::videosource::VideoSourceBuilder::new()
@@ -171,11 +177,13 @@ async fn main() {
                     .build(),
                 recorder::stillrecorder::StillRecorderBuilder::new()
                     .with_output_dir(conf.output_dir.as_str())
+                    .with_socket_path("/tmp/video10.sock")
+                    .with_device("video10")
                     .with_pipeline_str(conf.still_pipeline.as_str())
                     .build(),
                 recorder::preview::PreviewBuilder::new()
                     .with_socket_path("/tmp/video10.sock")
-                    .with_pipeline_str(conf.preview_pipeline.as_str())
+                    .with_pipeline_str(preview_pipeline.as_str())
                     .build(),
             ),
         }));

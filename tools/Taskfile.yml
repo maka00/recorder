@@ -13,3 +13,19 @@ tasks:
     cmds:
       - curl -X POST http://localhost:4000/stop
     silent: true
+  still:
+    desc: "Take a still"
+    cmds:
+      - curl -X POST http://localhost:4000/still
+    silent: true
+  start-record:
+    desc: "Start recording"
+    cmds:
+      - curl -X POST http://localhost:4000/recording/start
+    silent: true
+  stop-record:
+    desc: "Start recording"
+    cmds:
+      - curl -X POST http://localhost:4000/recording/stop
+    silent: true
+

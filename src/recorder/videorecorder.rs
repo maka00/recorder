@@ -131,7 +131,9 @@ impl Recorder for VideoRecorder {
             message_loop(bus, callback, frame_handler).await;
         });
         info!("Pipeline started");
-
+        if log::log_enabled!(log::Level::Debug) {
+            gst_pipeline.as_ref().unwrap().debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "recording");
+        }
         Ok(RecordingInfo { prefix: timestamp })
     }
     fn stop(&self, gst_pipeline: &Option<gst::Pipeline>) -> Result<(), PipelineError> {

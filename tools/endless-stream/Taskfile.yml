@@ -39,7 +39,6 @@ tasks:
 
   run:
     desc: "Run stream"
-    dir: ./tools/endless-stream
     cmds:
       - |
         export GST_DEBUG=3

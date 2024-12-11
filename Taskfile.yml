@@ -11,10 +11,44 @@ includes:
     dir: ./tools/overlay-server
   command: ./tools/Taskfile.yml
 
+dotenv: ['.env']
+
 tasks:
+  dummy:
+    desc: "Dummy task"
+    cmds:
+      - echo $RECORDING_PATH
   build-app:
     desc: "Build app"
     cmds:
       - | 
         echo "Building app..."
         cargo build --release
+
+  run-app:
+    desc: "Run app"
+    env:
+      RUST_LOG: debug
+    cmds:
+      - |
+        cargo run
+
+  run-app-overlay:
+    desc: "Run app with overlay"
+    env:
+      LIBGL_ALWAYS_SOFTWARE: true
+      RUST_LOG: debug
+      WITH_OVERLAY: true
+    cmds:
+      - |
+        cargo run
+
+  run-app-with-dot:
+    desc: "Run app and dump dot files"
+    env:
+      GST_DEBUG_DUMP_DOT_DIR: "{{.RECORDING_PATH}}"
+      RUST_LOG: debug
+    cmds:
+      - |
+        echo "$GST_DEBUG_DUMP_DOT_DIR"
+        cargo run
