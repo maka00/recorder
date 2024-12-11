@@ -56,7 +56,10 @@ impl Preview for PreviewImpl {
                 return PipelineError::EncodingError;
             })?;
         if log::log_enabled!(log::Level::Debug) {
-            gst_pipeline.as_ref().unwrap().debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "preview");
+            gst_pipeline
+                .as_ref()
+                .unwrap()
+                .debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "preview");
         }
         Ok(())
     }

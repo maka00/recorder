@@ -91,7 +91,12 @@ impl Source for VideoSource {
             std::thread::sleep(Duration::from_millis(100));
         }
         if log::log_enabled!(log::Level::Debug) {
-            self.gst_pipeline.as_ref().unwrap().downcast_ref::<gst::Bin>().unwrap().debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "source");
+            self.gst_pipeline
+                .as_ref()
+                .unwrap()
+                .downcast_ref::<gst::Bin>()
+                .unwrap()
+                .debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "source");
         }
         self.runtime.spawn(async {
             message_loop(bus).await;

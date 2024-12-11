@@ -132,7 +132,10 @@ impl Recorder for VideoRecorder {
         });
         info!("Pipeline started");
         if log::log_enabled!(log::Level::Debug) {
-            gst_pipeline.as_ref().unwrap().debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "recording");
+            gst_pipeline
+                .as_ref()
+                .unwrap()
+                .debug_to_dot_file(gst::DebugGraphDetails::MEDIA_TYPE, "recording");
         }
         Ok(RecordingInfo { prefix: timestamp })
     }
