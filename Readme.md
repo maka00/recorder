@@ -64,9 +64,9 @@ The actual overlay is available at `http://localhost:3000/` and can be used to d
 
 The configuration is done in the `config.toml` file. The following parameters are available:
 
-* `source_pipe` - the pipeline that reads from the webcam
-* `recording_pipe` - the pipeline that writes to the file
-* `still_pipe` - the pipeline that reads from the webcam and writes to a file
+* `source_pipeline` - the pipeline that reads from the webcam
+* `recording_pipeline` - the pipeline that writes to the file
+* `still_pipeline` - the pipeline that reads from the webcam and writes to a file
 * `preview_pipeline` - the pipeline that reads from the webcam and displays the video
 * `preview_pipeline_overlay` - the pipeline that reads from the webcam and displays the video with an overlay
 * `chunk_size` - the size of the video chunks in seconds
@@ -124,9 +124,10 @@ It gives a nice http frontend to dynamically create overlays. In this sample it 
 * The hlssink3 element only creates playlist entries with fully created chunks. So if the chunk size is 6 seconds, the playlist file is updated every 6 seconds. 
 If a recording is stopped before the chunk is fully created, the playlist file is not updated. So you might have a chunk that is not listed in the playlist file.
 
-* The wpesrc elements had troubles creating the overlay directly on the GPU (Nvidia). So the environment variable LIBGL_ALWAYS_SOFTWARE had to be used to create the overlay on the CPU.
-The root cause seems to be the library from Igalia https://github.com/Igalia/WPEBackend-offscreen-nvidia which would solve this issue.
-The actual mixing of the video and the overlay is done with the `glvideomixer` element. Only this element was able to make the overlay transparent.
+* The wpesrc elements had troubles creating the overlay directly on the GPU (Nvidia). So the environment variable `LIBGL_ALWAYS_SOFTWARE=true` had to be used to create the overlay on the CPU.
+The root cause seems to be the wpebackend library which could be resolved from Igalia in https://github.com/Igalia/WPEBackend-offscreen-nvidia which would solve this issue.
+The actual mixing of the video and the overlay is done with the `glvideomixer` element. Only this element was able to make the overlay transparent 
+(The [compositor](https://gstreamer.freedesktop.org/documentation/compositor/index.html?gi-language=c) element didn't manage to get the html background transparent - only the whole page).
 
 * The unixfdsrc element had issues getting a file descriptor once the stream has been uploaded to the GPU via glupload.
 
