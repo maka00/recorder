@@ -50,6 +50,15 @@ The rest interface is available at `http://localhost:4000` with the following en
 | `task command:stop-recording`  | Stops the video recording                   |
 | `task command:still`           | Takes a still                               |
 
+The overlay can be controlled via:
+
+| Command                        | Description                                 |
+|--------------------------------|---------------------------------------------|
+| `task overlay:build `          | builds the overlay container (source) |
+| `task overlay:run`            | starts the overlay container in the background  |
+
+The overlay is available at `http://localhost:3000/admin` and can be used to create overlays.
+The actual overlay is available at `http://localhost:3000/` and can be used to display the video with the overlay.
 
 ## Configuration
 
@@ -78,7 +87,7 @@ The output of the application is a series of video chunks and a playlist file. T
 | Description   | Output                                                      |
 |---------------|-------------------------------------------------------------|
 | video chunks  | < not shown here >                                          |
-| playlist file | ![tooltips](./doc/images/20241211-083017-playlist.m3u8) |
+| playlist file | [tooltips](./doc/images/20241211-083017-playlist.m3u8) |
 | tooltip file  | ![tooltips](./doc/images/20241211-083017-tooltips_00005.jpg) |
 | sprite file   | ![sprite](./doc/images/20241211-083017-sprite_00005.jpg)    |
 | the vtt file  | [vtt](./doc/images/20241211-083017-thumbnails.vtt)          |
@@ -109,7 +118,7 @@ For this to happen the signal is propagated to the videosource element.
 * For the recording the [hlssink3](https://gstreamer.freedesktop.org/documentation/hlssink3/hlssink3.html?gi-language=rust#hlssink3) element is used. This element is used to create a hls playlist file and a series of video chunks.
 * For the overlay the [wpesrc](https://gstreamer.freedesktop.org/documentation/wpe/wpesrc.html?gi-language=rust) is used. This element can read from a headless browser and display the video with an overlay.
 The actual overlay server was implemented by https://github.com/moschopsuk/Roses-2015-CasparCG-Graphics with some adaption from [here](https://github.com/Igalia/wpe-graphics-overlays/tree/1e23f781adef05d6d2f291d9bb67c28f9bb9b2f1).
-It gives a nice http frontend to dynamically create overlays.
+It gives a nice http frontend to dynamically create overlays. In this sample it is reachable at http://localhost:3000/admin.
 
 ## Issues during the implementation
 * The hlssink3 element only creates playlist entries with fully created chunks. So if the chunk size is 6 seconds, the playlist file is updated every 6 seconds. 
