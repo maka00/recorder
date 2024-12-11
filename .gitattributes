@@ -1,0 +1,6 @@
+*.rs linguist-detectable=true
+*.py linguist-detectable=true
+*.js linguist-detectable=false
+*.css linguist-detectable=false
+*.map linguist-detectable=false
+*.html linguist-detectable=false
