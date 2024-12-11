@@ -110,11 +110,11 @@ They are created with the `dot` tool from the `graphviz` package. In order to cr
 | videostill    | [pipeline-still](./doc/images/pipeline-still.png)         |
 
 ## GStreamer elements used
-* To share the video frames [unixfd](https://gstreamer.freedesktop.org/documentation/unixfd/unixfd.html?gi-language=c) is used.
+* To share the video frames [unixfd](https://gstreamer.freedesktop.org/documentation/unixfd/unixfdsink.html?gi-language=c) is used.
 This element does not copy the video frames but shares the memory between the pipelines. This sharing is done by passing a file descriptor between the pipelines. 
 For this to happen the signal is propagated to the videosource element.
 
-* For the webrtc preview the [webrtcsink](https://gstreamer.freedesktop.org/documentation/rswebrtc/webrtcsink.html?gi-language=rust) is used. This element is used to stream the video to a webrtc server.
+* For the webrtc preview the [webrtcsink](https://gstreamer.freedesktop.org/documentation/rswebrtc/webrtcsink.html?gi-language=rust) is used. This element is used to stream the video to a webrtc server. In this case it can be reached via http://localhost:8080.
 * For the recording the [hlssink3](https://gstreamer.freedesktop.org/documentation/hlssink3/hlssink3.html?gi-language=rust#hlssink3) element is used. This element is used to create a hls playlist file and a series of video chunks.
 * For the overlay the [wpesrc](https://gstreamer.freedesktop.org/documentation/wpe/wpesrc.html?gi-language=rust) is used. This element can read from a headless browser and display the video with an overlay.
 The actual overlay server was implemented by https://github.com/moschopsuk/Roses-2015-CasparCG-Graphics with some adaption from [here](https://github.com/Igalia/wpe-graphics-overlays/tree/1e23f781adef05d6d2f291d9bb67c28f9bb9b2f1).
